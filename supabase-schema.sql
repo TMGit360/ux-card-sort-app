@@ -7,16 +7,6 @@ DROP VIEW IF EXISTS public.study_admin_directory CASCADE;
 DROP VIEW IF EXISTS public.admin_studies CASCADE;
 
 -- Clean up old policies so this script can be re-run safely
-DROP POLICY IF EXISTS "admins view their profile" ON public.admin_profiles;
-DROP POLICY IF EXISTS "admins upsert their profile" ON public.admin_profiles;
-DROP POLICY IF EXISTS "admins update their profile" ON public.admin_profiles;
-DROP POLICY IF EXISTS "study admins view studies" ON public.studies;
-DROP POLICY IF EXISTS "study admins view study_admins" ON public.study_admins;
-DROP POLICY IF EXISTS "study admins view templates" ON public.sort_templates;
-DROP POLICY IF EXISTS "study admins insert templates" ON public.sort_templates;
-DROP POLICY IF EXISTS "study admins update templates" ON public.sort_templates;
-DROP POLICY IF EXISTS "study admins view participants" ON public.participants;
-DROP POLICY IF EXISTS "study admins view submissions" ON public.submissions;
 
 create table if not exists public.admin_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -383,6 +373,17 @@ alter table public.sort_templates enable row level security;
 alter table public.participants enable row level security;
 alter table public.submissions enable row level security;
 
+-- Clean up existing policies so this script can be re-run safely
+DROP POLICY IF EXISTS "admins view their profile" ON public.admin_profiles;
+DROP POLICY IF EXISTS "admins upsert their profile" ON public.admin_profiles;
+DROP POLICY IF EXISTS "admins update their profile" ON public.admin_profiles;
+DROP POLICY IF EXISTS "study admins view studies" ON public.studies;
+DROP POLICY IF EXISTS "study admins view study_admins" ON public.study_admins;
+DROP POLICY IF EXISTS "study admins view templates" ON public.sort_templates;
+DROP POLICY IF EXISTS "study admins insert templates" ON public.sort_templates;
+DROP POLICY IF EXISTS "study admins update templates" ON public.sort_templates;
+DROP POLICY IF EXISTS "study admins view participants" ON public.participants;
+DROP POLICY IF EXISTS "study admins view submissions" ON public.submissions;
 create policy "admins view their profile" on public.admin_profiles
 for select using (user_id = auth.uid());
 
