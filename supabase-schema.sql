@@ -10,10 +10,15 @@ DROP VIEW IF EXISTS public.admin_studies CASCADE;
 
 create table if not exists public.admin_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  email text not null unique,
+  email text not null,
   display_name text,
   created_at timestamptz not null default now()
 );
+
+-- Drop the redundant unique constraint on email if it exists from a prior schema run.
+-- auth.users already enforces email uniqueness; this constraint only causes duplicate-key
+-- errors when the same admin re-registers or the profiles table has stale rows.
+ALTER TABLE public.admin_profiles DROP CONSTRAINT IF EXISTS admin_profiles_email_key;
 
 create table if not exists public.studies (
   id uuid primary key default gen_random_uuid(),

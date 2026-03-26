@@ -484,7 +484,7 @@ student support=Support"></textarea>
         document.getElementById('selected-study-subtitle').textContent = `Study ID: ${selectedStudy.study_id}`;
 
         const basePath = window.location.pathname.replace(/\/[^/]*$/, '/');
-        const participantLink = `${window.location.origin}${basePath}index.html?token=${encodeURIComponent(selectedStudy.public_token)}`;
+        const participantLink = `${window.location.origin}${basePath}sort.html?token=${encodeURIComponent(selectedStudy.public_token)}`;
         document.getElementById('participant-link').value = participantLink;
 
         document.getElementById('study-admins').innerHTML = selectedStudyAdmins

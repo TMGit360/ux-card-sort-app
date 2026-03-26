@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Card Sort</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* ── Shared ─────────────────────────────────────────────── */
+    .page-center {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .hidden { display: none !important; }
+
+    /* ── Loading / Error ─────────────────────────────────────── */
+    #loading-view { color: #64748b; font-size: 1.1rem; }
+    #error-view { flex-direction: column; gap: 10px; text-align: center; }
+    #error-view strong { font-size: 1.1rem; color: #b91c1c; }
+    #error-view p { color: #64748b; margin: 0; }
+
+    /* ── Name gate ───────────────────────────────────────────── */
+    .gate-box {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.11);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 420px;
+    }
+    .gate-box h1 { margin: 0 0 6px; font-size: 1.45rem; line-height: 1.3; }
+    .gate-box p  { margin: 0 0 28px; color: #64748b; font-size: 15px; }
+    .gate-box label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      color: #374151;
+    }
+    .gate-box input {
+      display: block;
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      font: inherit;
+      font-size: 16px;
+      margin-bottom: 14px;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .gate-box input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .gate-box button[type="submit"] {
+      width: 100%;
+      padding: 13px;
+      background: #2563eb;
+      color: #fff;
+      border: 0;
+      border-radius: 10px;
+      font: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: background 0.15s;
+    }
+    .gate-box button[type="submit"]:hover    { background: #1d4ed8; }
+    .gate-box button[type="submit"]:disabled { background: #93c5fd; cursor: not-allowed; }
+    #gate-msg { margin-top: 14px; font-size: 14px; color: #b91c1c; min-height: 20px; }
+
+    /* ── Board ───────────────────────────────────────────────── */
+    #board {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .board-hdr {
+      flex-shrink: 0;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .hdr-info { flex: 1; min-width: 0; }
+    .hdr-info strong {
+      display: block;
+      font-size: 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hdr-info span { font-size: 13px; color: #64748b; }
+    .hdr-pill {
+      font-size: 13px;
+      color: #64748b;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 99px;
+      padding: 4px 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .hdr-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .hdr-actions button {
+      padding: 8px 16px;
+      border: 0;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #btn-add-cat { background: #eff6ff; color: #1d4ed8; }
+    #btn-add-cat:hover { background: #dbeafe; }
+    #btn-submit { background: #2563eb; color: #fff; }
+    #btn-submit:hover { background: #1d4ed8; }
+    #btn-submit:disabled { background: #93c5fd; cursor: not-allowed; }
+    #board-status {
+      width: 100%;
+      font-size: 13px;
+      color: #64748b;
+      padding: 1px 2px 0;
+      min-height: 16px;
+    }
+    #board-status.err { color: #b91c1c; }
+    #board-status.ok  { color: #166534; }
+
+    /* Body */
+    .board-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Unsorted panel */
+    .unsorted-panel {
+      flex-shrink: 0;
+      width: 220px;
+      background: #fff;
+      border-right: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .unsorted-panel h2 {
+      flex-shrink: 0;
+      margin: 0;
+      padding: 12px 14px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #unsorted-badge {
+      background: #e2e8f0;
+      color: #475569;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 7px;
+    }
+    #unsorted-zone {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    #unsorted-zone.drop-highlight { background: #eff6ff; }
+
+    /* Categories scroll area */
+    .cats-scroll {
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 14px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    /* Category column */
+    .cat-col {
+      flex-shrink: 0;
+      width: 190px;
+      background: #fff;
+      border: 2px solid #dbeafe;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 115px);
+      transition: border-color 0.1s, background 0.1s, box-shadow 0.1s;
+    }
+    .cat-col.drop-highlight {
+      border-color: #2563eb;
+      background: #eff6ff;
+    }
+    .cat-col.move-target {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+    }
+    .cat-hdr {
+      flex-shrink: 0;
+      padding: 10px 10px 8px;
+      border-bottom: 1px solid #dbeafe;
+    }
+    .cat-name {
+      display: block;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e40af;
+      text-align: center;
+      outline: none;
+      padding: 3px 4px;
+      border-radius: 6px;
+    }
+    .cat-name:not(:disabled):focus { background: #eff6ff; }
+    .cat-name:disabled { color: #374151; cursor: default; }
+    .cat-card-count {
+      font-size: 11px;
+      color: #94a3b8;
+      text-align: center;
+      margin-top: 2px;
+    }
+    .cat-dropzone {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 80px;
+    }
+    .drop-hint {
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+      padding: 16px 8px;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* ── Card tile ───────────────────────────────────────────── */
+    .card {
+      flex-shrink: 0;
+      padding: 11px 13px;
+      min-height: 62px;
+      background: #fef9c3;
+      border: 1.5px solid #fde047;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.4;
+      text-align: center;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+      box-shadow: 0 2px 6px rgba(146, 64, 14, 0.09);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: box-shadow 0.12s, transform 0.1s;
+    }
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(146, 64, 14, 0.16);
+      transform: translateY(-1px);
+    }
+    .card.selected {
+      outline: 3px solid #2563eb;
+      outline-offset: 2px;
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.22);
+      transform: translateY(-2px);
+    }
+    .card.is-dragging { opacity: 0.25; transform: none; }
+
+    /* ── Drag ghost ──────────────────────────────────────────── */
+    #drag-ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.88;
+      display: none;
+      /* card styles applied via JS */
+      background: #fef9c3;
+      border: 1.5px solid #fde047;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.4;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(146, 64, 14, 0.22);
+      padding: 11px 13px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Move tray (click-to-move) ───────────────────────────── */
+    #move-tray {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: #1e293b;
+      padding: 12px 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      transform: translateY(100%);
+      transition: transform 0.2s ease;
+    }
+    #move-tray.open { transform: translateY(0); }
+    .tray-label {
+      width: 100%;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 2px;
+    }
+    .tray-btn {
+      padding: 7px 14px;
+      background: #334155;
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .tray-btn:hover { background: #475569; }
+    .tray-btn.is-unsorted { background: #1e3a8a; }
+    .tray-btn.is-unsorted:hover { background: #1d4ed8; }
+
+    /* ── Thank-you ───────────────────────────────────────────── */
+    .thanks-box {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10);
+      padding: 48px 36px;
+      max-width: 380px;
+      text-align: center;
+    }
+    .thanks-box h1 { margin: 0 0 10px; color: #166534; font-size: 1.6rem; }
+    .thanks-box p  { margin: 0; color: #64748b; }
+
+    /* ── Mobile ──────────────────────────────────────────────── */
+    @media (max-width: 680px) {
+      #board { height: auto; min-height: 100vh; }
+      .board-body { flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+      .unsorted-panel {
+        width: 100%;
+        max-height: 220px;
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      #unsorted-zone { flex-direction: row; flex-wrap: wrap; }
+      .cats-scroll { overflow-x: auto; overflow-y: visible; flex-shrink: 0; }
+      .cat-col { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading-view" class="page-center">
+    Loading study…
+  </div>
+
+  <div id="error-view" class="page-center hidden">
+    <strong id="error-text"></strong>
+    <p>Check the link or contact your study administrator.</p>
+  </div>
+
+  <div id="gate-view" class="page-center hidden">
+    <div class="gate-box">
+      <h1 id="gate-study-name">Card Sort</h1>
+      <p>Enter your name exactly as instructed by the study administrator.</p>
+      <form id="gate-form" autocomplete="off">
+        <label for="inp-first">First name</label>
+        <input id="inp-first" type="text" required spellcheck="false" autocomplete="off" />
+        <label for="inp-last">Last name</label>
+        <input id="inp-last" type="text" required spellcheck="false" autocomplete="off" />
+        <button type="submit" id="gate-btn">Start card sort</button>
+        <div id="gate-msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="board" class="hidden">
+    <div class="board-hdr">
+      <div class="hdr-info">
+        <strong id="hdr-study"></strong>
+        <span id="hdr-participant"></span>
+      </div>
+      <div id="hdr-progress" class="hdr-pill"></div>
+      <div class="hdr-actions">
+        <button id="btn-add-cat">+ Category</button>
+        <button id="btn-submit">Submit</button>
+      </div>
+      <div id="board-status"></div>
+    </div>
+
+    <div class="board-body">
+      <div class="unsorted-panel">
+        <h2>Cards to sort <span id="unsorted-badge">0</span></h2>
+        <div id="unsorted-zone"></div>
+      </div>
+      <div class="cats-scroll" id="cats-area"></div>
+    </div>
+  </div>
+
+  <div id="thanks-view" class="page-center hidden">
+    <div class="thanks-box">
+      <h1>Thank you!</h1>
+      <p>Your card sort has been submitted successfully.<br />You may close this window.</p>
+    </div>
+  </div>
+
+  <!-- Floating ghost element for drag -->
+  <div id="drag-ghost"></div>
+
+  <!-- Click-to-move tray -->
+  <div id="move-tray">
+    <div class="tray-label">Move selected card to:</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script>
+    'use strict';
+
+    /* ─── Supabase ──────────────────────────────────────────── */
+    const _cfg = window.CARD_SORT_SUPABASE_CONFIG || {};
+    const sb = (_cfg.supabaseUrl && _cfg.supabaseAnonKey && !_cfg.supabaseUrl.includes('YOUR_PROJECT'))
+      ? window.supabase.createClient(_cfg.supabaseUrl, _cfg.supabaseAnonKey)
+      : null;
+
+    const TOKEN = new URLSearchParams(location.search).get('token');
+
+    /* ─── App state ─────────────────────────────────────────── */
+    let SESSION      = null;   // populated after start_participant_session
+    let selectedCard = null;   // card element selected via click/tap
+
+    /* ─── Drag state ─────────────────────────────────────────── */
+    let dragCard     = null;
+    let dragOffsetX  = 0;
+    let dragOffsetY  = 0;
+    let dragStartX   = 0;
+    let dragStartY   = 0;
+    let isDragging   = false;  // true once movement threshold is exceeded
+
+    /* ─── DOM ─────────────────────────────────────────────────── */
+    const elLoading   = document.getElementById('loading-view');
+    const elError     = document.getElementById('error-view');
+    const elErrorText = document.getElementById('error-text');
+    const elGateView  = document.getElementById('gate-view');
+    const elGateStudy = document.getElementById('gate-study-name');
+    const elGateBtn   = document.getElementById('gate-btn');
+    const elGateMsg   = document.getElementById('gate-msg');
+    const elBoard     = document.getElementById('board');
+    const elThanks    = document.getElementById('thanks-view');
+    const elHdrStudy  = document.getElementById('hdr-study');
+    const elHdrPart   = document.getElementById('hdr-participant');
+    const elHdrProg   = document.getElementById('hdr-progress');
+    const elBoardStat = document.getElementById('board-status');
+    const elUnsorted  = document.getElementById('unsorted-zone');
+    const elBadge     = document.getElementById('unsorted-badge');
+    const elCatsArea  = document.getElementById('cats-area');
+    const elBtnAddCat = document.getElementById('btn-add-cat');
+    const elBtnSubmit = document.getElementById('btn-submit');
+    const elGhost     = document.getElementById('drag-ghost');
+    const elTray      = document.getElementById('move-tray');
+
+    /* ─── View helpers ──────────────────────────────────────── */
+    const ALL_VIEWS = [elLoading, elError, elGateView, elBoard, elThanks];
+
+    function show(el) {
+      ALL_VIEWS.forEach(v => v.classList.add('hidden'));
+      el.classList.remove('hidden');
+    }
+
+    function showError(msg) {
+      elErrorText.textContent = msg;
+      show(elError);
+    }
+
+    function setStatus(msg, type) {
+      elBoardStat.textContent = msg;
+      elBoardStat.className = type === 'err' ? 'err' : type === 'ok' ? 'ok' : '';
+    }
+
+    /* ─── Data helpers ──────────────────────────────────────── */
+    function toArray(v) {
+      if (Array.isArray(v)) return v.filter(Boolean);
+      if (typeof v !== 'string' || !v.trim()) return [];
+      try {
+        const p = JSON.parse(v);
+        if (Array.isArray(p)) return p.filter(Boolean);
+      } catch (_) {}
+      return v.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+    }
+
+    /* ─── Session storage ───────────────────────────────────── */
+    function sessionKey() { return 'csort:' + TOKEN; }
+
+    function storeSession(s) {
+      try { localStorage.setItem(sessionKey(), JSON.stringify(s)); } catch (_) {}
+    }
+
+    function loadStoredSession() {
+      try {
+        const raw = localStorage.getItem(sessionKey());
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        if (!s || s.public_token !== TOKEN || !s.participant_id) return null;
+        return s;
+      } catch (_) { return null; }
+    }
+
+    function clearStoredSession() {
+      try { localStorage.removeItem(sessionKey()); } catch (_) {}
+    }
+
+    /* ─── Progress ──────────────────────────────────────────── */
+    function updateProgress() {
+      const total    = document.querySelectorAll('#board .card').length;
+      const unsorted = elUnsorted.querySelectorAll('.card').length;
+      const sorted   = total - unsorted;
+      elBadge.textContent    = unsorted;
+      elHdrProg.textContent  = sorted + ' of ' + total + ' sorted';
+    }
+
+    /* ─── Drop hints ────────────────────────────────────────── */
+    function refreshHint(zone) {
+      let hint = zone.querySelector('.drop-hint');
+      const empty = zone.querySelectorAll('.card').length === 0;
+      if (empty && !hint) {
+        hint = document.createElement('div');
+        hint.className = 'drop-hint';
+        hint.textContent = 'Drop cards here';
+        zone.appendChild(hint);
+      } else if (!empty && hint) {
+        hint.remove();
+      }
+    }
+
+    function refreshAllHints() {
+      document.querySelectorAll('.cat-dropzone').forEach(refreshHint);
+    }
+
+    /* ─── Cat count labels ──────────────────────────────────── */
+    function refreshCatCount(col) {
+      const n = col.querySelectorAll('.card').length;
+      const el = col.querySelector('.cat-card-count');
+      if (el) el.textContent = n + (n === 1 ? ' card' : ' cards');
+    }
+
+    function refreshAllCatCounts() {
+      document.querySelectorAll('.cat-col').forEach(refreshCatCount);
+    }
+
+    /* ─── After any card move ───────────────────────────────── */
+    function afterMove() {
+      updateProgress();
+      refreshAllHints();
+      refreshAllCatCounts();
+    }
+
+    /* ─── Move a card into a zone ───────────────────────────── */
+    function moveCard(card, zone) {
+      zone.appendChild(card);
+      afterMove();
+    }
+
+    /* ─── Card factory ──────────────────────────────────────── */
+    function makeCard(text) {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.textContent = text;
+      el.dataset.text = text;
+      return el;
+    }
+
+    /* ─── Category column factory ───────────────────────────── */
+    let untitledN = 0;
+
+    function makeCatCol(name, allowEdit) {
+      const col = document.createElement('div');
+      col.className = 'cat-col';
+
+      const hdr = document.createElement('div');
+      hdr.className = 'cat-hdr';
+
+      const nameEl = document.createElement('input');
+      nameEl.className = 'cat-name';
+      nameEl.value = (name && name.trim()) ? name.trim() : ('Category ' + (++untitledN));
+      nameEl.placeholder = 'Category name';
+      nameEl.disabled = !allowEdit;
+      nameEl.addEventListener('input', () => refreshTray());
+
+      const countEl = document.createElement('div');
+      countEl.className = 'cat-card-count';
+      countEl.textContent = '0 cards';
+
+      hdr.append(nameEl, countEl);
+
+      const dz = document.createElement('div');
+      dz.className = 'cat-dropzone';
+
+      col.append(hdr, dz);
+      elCatsArea.appendChild(col);
+      refreshHint(dz);
+
+      // Click on the column (not on the name input) moves selected card here
+      col.addEventListener('click', e => {
+        if (e.target === nameEl) return;
+        if (!selectedCard) return;
+        moveCard(selectedCard, dz);
+        clearSelection();
+      });
+
+      refreshTray();
+      return { col, dz };
+    }
+
+    function getCatName(col) {
+      return (col.querySelector('.cat-name')?.value || '').trim() || 'Unnamed';
+    }
+
+    /* ─── Drag-and-drop via Pointer Events ──────────────────── */
+    document.addEventListener('pointerdown', e => {
+      // Only left-click or touch; ignore clicks on ghost or UI controls
+      if (e.button > 0) return;
+      const card = e.target.closest('.card');
+      if (!card || card === elGhost) return;
+      if (e.target.closest('.cat-name')) return;
+
+      card.setPointerCapture(e.pointerId);
+      dragCard   = card;
+      isDragging = false;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      const r    = card.getBoundingClientRect();
+      dragOffsetX = e.clientX - r.left;
+      dragOffsetY = e.clientY - r.top;
+    }, { passive: true });
+
+    document.addEventListener('pointermove', e => {
+      if (!dragCard) return;
+
+      const moved = Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY);
+
+      if (!isDragging) {
+        if (moved < 5) return;
+
+        // Threshold exceeded — start the drag visual
+        isDragging = true;
+        dragCard.classList.add('is-dragging');
+        clearSelection();           // dismiss click-to-move tray
+        document.body.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+
+        const r = dragCard.getBoundingClientRect();
+        elGhost.textContent  = dragCard.dataset.text;
+        elGhost.style.width  = r.width + 'px';
+        elGhost.style.minHeight = r.height + 'px';
+        elGhost.style.display   = 'flex';
+      }
+
+      e.preventDefault();
+
+      // Position ghost under the pointer at the same offset as original card
+      elGhost.style.left = (e.clientX - dragOffsetX) + 'px';
+      elGhost.style.top  = (e.clientY - dragOffsetY) + 'px';
+
+      // Highlight drop target under pointer
+      elGhost.style.display = 'none';
+      const under = document.elementsFromPoint(e.clientX, e.clientY);
+      elGhost.style.display = 'flex';
+
+      document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
+
+      const catDz  = under.find(el => el.classList.contains('cat-dropzone'));
+      const catCol = under.find(el => el.classList.contains('cat-col'));
+      const onUnsorted = under.some(el => el === elUnsorted);
+
+      if (catCol) {
+        catCol.classList.add('drop-highlight');
+      } else if (onUnsorted) {
+        elUnsorted.classList.add('drop-highlight');
+      }
+    }, { passive: false });
+
+    document.addEventListener('pointerup', e => {
+      if (!dragCard) return;
+
+      const wasGenuineDrag = isDragging;
+      const card = dragCard;
+
+      // Reset drag state
+      dragCard = null;
+      isDragging = false;
+      card.classList.remove('is-dragging');
+      elGhost.style.display = 'none';
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
+
+      if (wasGenuineDrag) {
+        // Find drop target
+        const under = document.elementsFromPoint(e.clientX, e.clientY);
+        const catDz  = under.find(el => el.classList.contains('cat-dropzone'));
+        const catCol = under.find(el => el.classList.contains('cat-col'));
+        const onUnsorted = under.some(el => el === elUnsorted || el.closest('#unsorted-zone'));
+
+        if (catDz) {
+          moveCard(card, catDz);
+        } else if (catCol) {
+          const dz = catCol.querySelector('.cat-dropzone');
+          if (dz) moveCard(card, dz);
+        } else if (onUnsorted) {
+          moveCard(card, elUnsorted);
+        }
+        // Dropped outside any valid zone → card stays in place
+
+      } else {
+        // It was a tap — toggle selection
+        if (selectedCard === card) {
+          clearSelection();
+        } else {
+          clearSelection();
+          selectedCard = card;
+          card.classList.add('selected');
+          openTray();
+        }
+      }
+    });
+
+    document.addEventListener('pointercancel', () => {
+      if (!dragCard) return;
+      dragCard.classList.remove('is-dragging');
+      elGhost.style.display = 'none';
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
+      dragCard   = null;
+      isDragging = false;
+    });
+
+    /* ─── Click-to-move tray ────────────────────────────────── */
+    function openTray() {
+      refreshTray();
+      elTray.classList.add('open');
+    }
+
+    function clearSelection() {
+      if (selectedCard) selectedCard.classList.remove('selected');
+      selectedCard = null;
+      elTray.classList.remove('open');
+      document.querySelectorAll('.cat-col.move-target').forEach(c => c.classList.remove('move-target'));
+    }
+
+    function refreshTray() {
+      // Remove old destination buttons, keep the label
+      elTray.querySelectorAll('.tray-btn').forEach(b => b.remove());
+
+      const makeBtn = (label, onClick, extra) => {
+        const btn = document.createElement('button');
+        btn.className = 'tray-btn' + (extra ? ' ' + extra : '');
+        btn.textContent = label;
+        btn.addEventListener('click', onClick);
+        elTray.appendChild(btn);
+      };
+
+      makeBtn('↩ Unsorted', () => {
+        if (selectedCard) { moveCard(selectedCard, elUnsorted); clearSelection(); }
+      }, 'is-unsorted');
+
+      document.querySelectorAll('.cat-col').forEach(col => {
+        const dz = col.querySelector('.cat-dropzone');
+        makeBtn(getCatName(col), () => {
+          if (selectedCard && dz) { moveCard(selectedCard, dz); clearSelection(); }
+        });
+      });
+    }
+
+    // Clicking empty space (not a card, not the tray) clears selection
+    document.addEventListener('click', e => {
+      if (!selectedCard) return;
+      if (e.target.closest('.card')) return;
+      if (e.target.closest('#move-tray')) return;
+      clearSelection();
+    });
+
+    // Clicking unsorted zone background moves selected card back there
+    elUnsorted.addEventListener('click', e => {
+      if (!selectedCard) return;
+      if (e.target.closest('.card')) return;
+      moveCard(selectedCard, elUnsorted);
+      clearSelection();
+    });
+
+    /* ─── Build board ───────────────────────────────────────── */
+    function buildBoard(session) {
+      SESSION = session;
+      const allowEdit = session.allow_category_editing !== false;
+
+      elHdrStudy.textContent = session.study_name || 'Card Sort';
+      elHdrPart.textContent  = session.participant_name || '';
+      elBtnAddCat.style.display = allowEdit ? '' : 'none';
+
+      // Place cards in the unsorted pile
+      let cards = toArray(session.cards);
+      if (session.is_randomized) {
+        cards = [...cards].sort(() => Math.random() - 0.5);
+      }
+      cards.forEach(text => elUnsorted.appendChild(makeCard(text)));
+
+      // Create category columns
+      const cats = toArray(session.categories);
+      if (cats.length > 0) {
+        cats.forEach(name => makeCatCol(name, allowEdit));
+      } else if (allowEdit) {
+        // No preset categories: give two blank ones to get started
+        makeCatCol('', true);
+        makeCatCol('', true);
+      }
+
+      updateProgress();
+      refreshAllHints();
+      show(elBoard);
+      setStatus('Drag a card onto a category, or tap a card then choose a destination.');
+    }
+
+    /* ─── Collect result ────────────────────────────────────── */
+    function collectResult() {
+      const result = {};
+      document.querySelectorAll('.cat-col').forEach(col => {
+        const name = getCatName(col);
+        result[name] = Array.from(col.querySelectorAll('.card')).map(c => c.dataset.text);
+      });
+      return result;
+    }
+
+    /* ─── Submit ────────────────────────────────────────────── */
+    async function submitSort() {
+      if (!sb || !SESSION) return;
+      elBtnSubmit.disabled = true;
+      setStatus('Submitting…');
+      try {
+        const result = collectResult();
+        const { error } = await sb.rpc('submit_card_sort', {
+          p_public_token:   SESSION.public_token,
+          p_participant_id: SESSION.participant_id,
+          p_template_id:    SESSION.template_id,
+          p_result_json:    result,
+        });
+        if (error) throw error;
+        clearStoredSession();
+        show(elThanks);
+      } catch (err) {
+        setStatus((err.message || 'Submission failed.') + ' Please try again.', 'err');
+        elBtnSubmit.disabled = false;
+      }
+    }
+
+    /* ─── Button wiring ─────────────────────────────────────── */
+    elBtnAddCat.addEventListener('click', () => {
+      const allowEdit = SESSION?.allow_category_editing !== false;
+      makeCatCol('', allowEdit);
+    });
+    elBtnSubmit.addEventListener('click', submitSort);
+
+    /* ─── Boot ──────────────────────────────────────────────── */
+    async function boot() {
+      if (!TOKEN) {
+        showError('No study token found in this URL. Use the link provided by your administrator.');
+        return;
+      }
+      if (!sb) {
+        showError('Supabase is not configured. Check supabase-config.js.');
+        return;
+      }
+
+      // Reload from stored session (handles page refresh)
+      const stored = loadStoredSession();
+      if (stored) {
+        stored.cards      = toArray(stored.cards);
+        stored.categories = toArray(stored.categories);
+        buildBoard(stored);
+        return;
+      }
+
+      // Fetch study name for the gate
+      try {
+        const { data, error } = await sb.rpc('get_public_study_context', { p_public_token: TOKEN });
+        if (error) throw error;
+        const ctx = Array.isArray(data) ? data[0] : data;
+        if (!ctx) {
+          showError('This study link is invalid or has been deactivated.');
+          return;
+        }
+        elGateStudy.textContent = ctx.study_name || 'Card Sort Study';
+        show(elGateView);
+        document.getElementById('inp-first').focus();
+      } catch (err) {
+        showError(err.message || 'Unable to load this study.');
+      }
+    }
+
+    /* ─── Gate form submit ──────────────────────────────────── */
+    document.getElementById('gate-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const first = document.getElementById('inp-first').value.trim();
+      const last  = document.getElementById('inp-last').value.trim();
+      if (!first || !last) return;
+
+      elGateBtn.disabled = true;
+      elGateMsg.style.color = '#64748b';
+      elGateMsg.textContent = 'Starting session…';
+
+      try {
+        const { data, error } = await sb.rpc('start_participant_session', {
+          p_public_token: TOKEN,
+          p_first_name:   first,
+          p_last_name:    last,
+        });
+        if (error) throw error;
+
+        const session = Array.isArray(data) ? data[0] : data;
+        session.cards      = toArray(session.cards);
+        session.categories = toArray(session.categories);
+        storeSession(session);
+        buildBoard(session);
+
+      } catch (err) {
+        elGateMsg.style.color = '#b91c1c';
+        elGateMsg.textContent = err.message || 'Unable to start session. Please try again.';
+        elGateBtn.disabled = false;
+      }
+    });
+
+    /* ─── Go ────────────────────────────────────────────────── */
+    boot();
+  </script>
+</body>
+</html>
