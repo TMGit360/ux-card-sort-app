@@ -345,8 +345,7 @@
         try {
           const parsed = JSON.parse(rawSession);
           if (publicToken && parsed.public_token !== publicToken) return null;
-          parsed.cards = normalizeArray(parsed.cards);
-          parsed.categories = normalizeArray(parsed.categories);
+          parsed = hydrateSessionTemplate(parsed, null);
           return parsed;
         } catch (_error) {
           clearStoredSession();
@@ -373,9 +372,8 @@
           p_last_name: lastName,
         });
         if (error) throw error;
-        const nextSession = Array.isArray(data) ? data[0] : data;
-        nextSession.cards = normalizeArray(nextSession.cards);
-        nextSession.categories = normalizeArray(nextSession.categories);
+        let nextSession = Array.isArray(data) ? data[0] : data;
+        nextSession = hydrateSessionTemplate(nextSession, window.__cardSortStudyContext || null);
         persistSession(nextSession);
         return nextSession;
       }
@@ -391,6 +389,47 @@
         for (const category of (template.categories || [])) {
           data[category] = [];
         }
+      }
+
+      function parseLooseArray(value) {
+        if (Array.isArray(value)) return value.filter((item) => String(item || '').trim());
+        if (typeof value !== 'string') return [];
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) return parsed.filter((item) => String(item || '').trim());
+        } catch (_error) {}
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          return trimmed.slice(1, -1).split(',').map((item) => item.replace(/^"|"$/g, '').trim()).filter(Boolean);
+        }
+        return trimmed.split(/
+|,/).map((item) => item.trim()).filter(Boolean);
+      }
+
+      function hydrateSessionTemplate(nextSession, fallbackContext) {
+        nextSession.cards = parseLooseArray(nextSession.cards);
+        nextSession.categories = parseLooseArray(nextSession.categories);
+
+        if ((!nextSession.cards.length || !nextSession.categories.length) && fallbackContext) {
+          if (!nextSession.study_name && fallbackContext.study_name) {
+            nextSession.study_name = fallbackContext.study_name;
+          }
+          if (!nextSession.cards.length) {
+            nextSession.cards = parseLooseArray(fallbackContext.cards || fallbackContext.template_cards || fallbackContext.card_texts);
+          }
+          if (!nextSession.categories.length) {
+            nextSession.categories = parseLooseArray(fallbackContext.categories || fallbackContext.template_categories || fallbackContext.category_names);
+          }
+          if (typeof fallbackContext.allow_category_editing !== 'undefined') {
+            nextSession.allow_category_editing = fallbackContext.allow_category_editing;
+          }
+          if (typeof fallbackContext.is_randomized !== 'undefined') {
+            nextSession.is_randomized = fallbackContext.is_randomized;
+          }
+        }
+
+        return nextSession;
       }
 
       function createCardElement(text) {
@@ -583,8 +622,7 @@
       }
 
       async function bootFromSession() {
-        session.cards = normalizeArray(session.cards);
-        session.categories = normalizeArray(session.categories);
+        session = hydrateSessionTemplate(session, window.__cardSortStudyContext || null);
         persistSession(session);
         studyHeading.textContent = session.study_name + ' · ' + session.participant_name;
         resetBoard();
@@ -671,6 +709,7 @@
 
         try {
           const studyContext = await loadPublicStudyContext();
+          window.__cardSortStudyContext = studyContext || null;
           if (!studyContext) {
             setStatus('This study link is invalid or inactive.', 'error');
             return;
