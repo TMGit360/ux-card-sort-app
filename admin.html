@@ -238,16 +238,15 @@ student support=Support"></textarea>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="common-scripts.js"></script>
     <script src="supabase-config.js"></script>
-    <script src="https://www.gstatic.com/charts/loader.js"></script>
     <script>
       google.charts.load('current', { packages: ['sankey'] });
 
       const {
         splitToArray: splitLines,
-        parseCategoryMergeMap,
-        buildCardCategorySankeyRows,
-        buildOriginalMergedSankeyRows,
-        escapeHtml,
+        parseCategoryMergeMap: parseMergeMap,
+        buildCardCategorySankeyRows: buildCardSankeyRows,
+        buildOriginalMergedSankeyRows: buildMergedSankeyRows,
+        escapeHtml: escapeText,
       } = window.CardSortCommon;
 
       const config = window.CARD_SORT_SUPABASE_CONFIG || {};
@@ -368,7 +367,7 @@ student support=Support"></textarea>
         for (const study of studies) {
           const div = document.createElement('div');
           div.className = 'study-card' + (selectedStudy && selectedStudy.id === study.id ? ' active' : '');
-          div.innerHTML = `<strong>${escapeHtml(study.study_name)}</strong><br /><span class="tiny">${escapeHtml(study.study_id)}</span><br /><span class="tiny">Submissions: ${study.submission_count || 0}</span>`;
+          div.innerHTML = `<strong>${escapeText(study.study_name)}</strong><br /><span class="tiny">${escapeText(study.study_id)}</span><br /><span class="tiny">Submissions: ${study.submission_count || 0}</span>`;
           div.addEventListener('click', () => selectStudy(study.id));
           container.appendChild(div);
         }
@@ -407,7 +406,7 @@ student support=Support"></textarea>
         document.getElementById('selected-study-subtitle').textContent = `Study ID: ${selectedStudy.study_id}`;
         const participantLink = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '/') }index.html?token=${selectedStudy.public_token}`;
         document.getElementById('participant-link').value = participantLink;
-        document.getElementById('study-admins').innerHTML = selectedStudyAdmins.map((admin) => `<span class="chip">${escapeHtml(admin.email)}</span>`).join('');
+        document.getElementById('study-admins').innerHTML = selectedStudyAdmins.map((admin) => `<span class="chip">${escapeText(admin.email)}</span>`).join('');
         if (selectedTemplate) {
           document.getElementById('edit-template-name').value = selectedTemplate.template_name || '';
           document.getElementById('edit-cards').value = (selectedTemplate.cards || []).join('\n');
@@ -467,9 +466,9 @@ student support=Support"></textarea>
           const checked = selectedSubmissionIds.has(row.submission_id) ? 'checked' : '';
           tr.innerHTML = `
             <td><input type="checkbox" data-submission-id="${row.submission_id}" ${checked} /></td>
-            <td>${escapeHtml(row.user_id)}</td>
-            <td><button class="ghost inline open-result" data-submission-id="${row.submission_id}">${escapeHtml(row.participant_name)}</button></td>
-            <td>${escapeHtml(row.submission_id)}</td>
+            <td>${escapeText(row.user_id)}</td>
+            <td><button class="ghost inline open-result" data-submission-id="${row.submission_id}">${escapeText(row.participant_name)}</button></td>
+            <td>${escapeText(row.submission_id)}</td>
             <td>${row.submitted_at ? new Date(row.submitted_at).toLocaleString() : ''}</td>
             <td>${row.submission_count || 1}</td>
           `;
@@ -499,14 +498,14 @@ student support=Support"></textarea>
         const result = row.result_json || {};
         const categoryHtml = Object.entries(result).map(([categoryName, cards]) => `
           <div class="category-box">
-            <strong>${escapeHtml(categoryName)}</strong>
-            <ul>${(cards || []).map((card) => `<li>${escapeHtml(card)}</li>`).join('')}</ul>
+            <strong>${escapeText(categoryName)}</strong>
+            <ul>${(cards || []).map((card) => `<li>${escapeText(card)}</li>`).join('')}</ul>
           </div>
         `).join('');
         target.innerHTML = `
           <div class="result-card">
-            <strong>${escapeHtml(row.participant_name)}</strong><br />
-            <span class="tiny">User ID: ${escapeHtml(row.user_id)} · Submission ID: ${escapeHtml(row.submission_id)}</span>
+            <strong>${escapeText(row.participant_name)}</strong><br />
+            <span class="tiny">User ID: ${escapeText(row.user_id)} · Submission ID: ${escapeText(row.submission_id)}</span>
             <div class="category-columns" style="margin-top: 14px;">${categoryHtml}</div>
           </div>
         `;
@@ -523,10 +522,10 @@ student support=Support"></textarea>
 
       function renderCombinedCharts() {
         const selectedRows = getSelectedSubmissionRows();
-        const mergeMap = parseCategoryMergeMap(document.getElementById('merge-map').value);
+        const mergeMap = parseMergeMap(document.getElementById('merge-map').value);
         google.charts.setOnLoadCallback(() => {
-          drawSankey('card-category-chart', buildCardCategorySankeyRows(selectedRows, mergeMap), 'No data for card-to-category Sankey.');
-          drawSankey('category-merge-chart', buildOriginalMergedSankeyRows(selectedRows, mergeMap), 'No data for category-merge Sankey.');
+          drawSankey('card-category-chart', buildCardSankeyRows(selectedRows, mergeMap), 'No data for card-to-category Sankey.');
+          drawSankey('category-merge-chart', buildMergedSankeyRows(selectedRows, mergeMap), 'No data for category-merge Sankey.');
         });
       }
 
