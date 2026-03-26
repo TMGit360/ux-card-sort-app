@@ -238,11 +238,12 @@ student support=Support"></textarea>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="common-scripts.js"></script>
     <script src="supabase-config.js"></script>
+    <script src="https://www.gstatic.com/charts/loader.js"></script>
     <script>
       google.charts.load('current', { packages: ['sankey'] });
 
       const {
-        splitToArray,
+        splitToArray: splitLines,
         parseCategoryMergeMap,
         buildCardCategorySankeyRows,
         buildOriginalMergedSankeyRows,
@@ -322,8 +323,8 @@ student support=Support"></textarea>
       }
 
       async function createStudy() {
-        const cards = splitToArray(document.getElementById('new-cards').value);
-        const categories = splitToArray(document.getElementById('new-categories').value);
+        const cards = splitLines(document.getElementById('new-cards').value);
+        const categories = splitLines(document.getElementById('new-categories').value);
         const payload = {
           p_study_id: document.getElementById('new-study-id').value.trim(),
           p_study_name: document.getElementById('new-study-name').value.trim(),
@@ -421,8 +422,8 @@ student support=Support"></textarea>
         const payload = {
           study_id: selectedStudy.id,
           template_name: document.getElementById('edit-template-name').value.trim(),
-          cards: splitToArray(document.getElementById('edit-cards').value),
-          categories: splitToArray(document.getElementById('edit-categories').value),
+          cards: splitLines(document.getElementById('edit-cards').value),
+          categories: splitLines(document.getElementById('edit-categories').value),
           allow_category_editing: document.getElementById('edit-allow-edit').checked,
           is_randomized: document.getElementById('edit-randomize').checked,
           is_active: true,
