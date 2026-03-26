@@ -136,9 +136,17 @@
         uncategorizedKey: uncategorizedCardsKey,
         settingsFlagsKey: settingsKey,
       } = window.CardSortCommon;
+
       const config = window.CARD_SORT_SUPABASE_CONFIG || {};
-      const hasSupabaseConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && !config.supabaseUrl.includes('YOUR_PROJECT_ID'));
-      const supabase = hasSupabaseConfig ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+      const hasSupabaseConfig = Boolean(
+        config.supabaseUrl &&
+        config.supabaseAnonKey &&
+        !config.supabaseUrl.includes('YOUR_PROJECT_ID')
+      );
+
+      const supabaseClient = hasSupabaseConfig
+        ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey)
+        : null;
 
       const studyMeta = document.getElementById('study-meta');
       const participantForm = document.getElementById('participant-form');
@@ -154,10 +162,13 @@
       document.getElementById('legacy-create-link').addEventListener('click', async () => {
         const cards = splitLines(document.getElementById('legacy-cards').value);
         const categories = splitLines(document.getElementById('legacy-categories').value);
-        const data = { [uncategorizedCardsKey]: cards, [settingsKey]: saveCardSettings({
-          allowCategoryEditing: document.getElementById('legacy-allow-edit').checked,
-          isRandomized: document.getElementById('legacy-randomize').checked,
-        }) };
+        const data = {
+          [uncategorizedCardsKey]: cards,
+          [settingsKey]: saveCardSettings({
+            allowCategoryEditing: document.getElementById('legacy-allow-edit').checked,
+            isRandomized: document.getElementById('legacy-randomize').checked,
+          }),
+        };
         for (const category of categories) data[category] = [];
         const payload = await encodeSortPayload(data);
         const baseUrl = window.location.href.replace(window.CardSortCommon.regexRemoveBasenameFromUrl, '/');
@@ -169,16 +180,19 @@
         event.preventDefault();
         participantStatus.textContent = '';
         participantStatus.className = 'status';
-        if (!supabase || !studyContext) {
+
+        if (!supabaseClient || !studyContext) {
           participantStatus.textContent = 'This study link is not configured yet.';
           participantStatus.classList.add('error');
           return;
         }
+
         const firstName = document.getElementById('first-name').value.trim();
         const lastName = document.getElementById('last-name').value.trim();
+
         try {
           participantStatus.textContent = 'Starting session…';
-          const { data, error } = await supabase.rpc('start_participant_session', {
+          const { data, error } = await supabaseClient.rpc('start_participant_session', {
             p_public_token: publicToken,
             p_first_name: firstName,
             p_last_name: lastName,
@@ -198,23 +212,34 @@
           studyMeta.innerHTML = 'This page expects a study-specific link containing a token, such as <code>?token=...</code>.';
           return;
         }
-        if (!supabase) {
+
+        if (!supabaseClient) {
           studyMeta.innerHTML = 'Add your Supabase URL and anon key to <code>supabase-config.js</code> before using the deployed flow.';
           return;
         }
-        const { data, error } = await supabase.rpc('get_public_study_context', { p_public_token: publicToken });
+
+        const { data, error } = await supabaseClient.rpc('get_public_study_context', {
+          p_public_token: publicToken
+        });
+
         if (error) {
           studyMeta.textContent = error.message || 'Unable to load study.';
           studyMeta.classList.add('error');
           return;
         }
+
         studyContext = Array.isArray(data) ? data[0] : data;
         if (!studyContext) {
           studyMeta.textContent = 'This study link is invalid or inactive.';
           studyMeta.classList.add('error');
           return;
         }
-        studyMeta.innerHTML = '<strong>Study:</strong> ' + studyContext.study_name + '<br /><strong>Study ID:</strong> ' + studyContext.study_id + '<br /><span class="muted">Enter your first and last name exactly as instructed by the administrator.</span>';
+
+        studyMeta.innerHTML =
+          '<strong>Study:</strong> ' + studyContext.study_name +
+          '<br /><strong>Study ID:</strong> ' + studyContext.study_id +
+          '<br /><span class="muted">Enter your first and last name exactly as instructed by the administrator.</span>';
+
         participantForm.classList.remove('hidden');
       }
 
