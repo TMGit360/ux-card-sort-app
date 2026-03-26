@@ -129,7 +129,13 @@
     <script src="common-scripts.js"></script>
     <script src="supabase-config.js"></script>
     <script>
-      const { splitToArray, saveSettings, saveToString, uncategorizedKey, settingsFlagsKey } = window.CardSortCommon;
+      const {
+        splitToArray: splitLines,
+        saveSettings: saveCardSettings,
+        saveToString: encodeSortPayload,
+        uncategorizedKey: uncategorizedCardsKey,
+        settingsFlagsKey: settingsKey,
+      } = window.CardSortCommon;
       const config = window.CARD_SORT_SUPABASE_CONFIG || {};
       const hasSupabaseConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && !config.supabaseUrl.includes('YOUR_PROJECT_ID'));
       const supabase = hasSupabaseConfig ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
@@ -146,14 +152,14 @@
       });
 
       document.getElementById('legacy-create-link').addEventListener('click', async () => {
-        const cards = splitToArray(document.getElementById('legacy-cards').value);
-        const categories = splitToArray(document.getElementById('legacy-categories').value);
-        const data = { [uncategorizedKey]: cards, [settingsFlagsKey]: saveSettings({
+        const cards = splitLines(document.getElementById('legacy-cards').value);
+        const categories = splitLines(document.getElementById('legacy-categories').value);
+        const data = { [uncategorizedCardsKey]: cards, [settingsKey]: saveCardSettings({
           allowCategoryEditing: document.getElementById('legacy-allow-edit').checked,
           isRandomized: document.getElementById('legacy-randomize').checked,
         }) };
         for (const category of categories) data[category] = [];
-        const payload = await saveToString(data);
+        const payload = await encodeSortPayload(data);
         const baseUrl = window.location.href.replace(window.CardSortCommon.regexRemoveBasenameFromUrl, '/');
         const url = baseUrl + 'card-sort.html#' + payload;
         document.getElementById('legacy-link').innerHTML = '<a href="' + url + '">' + url + '</a>';
