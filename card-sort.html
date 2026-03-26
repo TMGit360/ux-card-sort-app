@@ -194,12 +194,21 @@
 
       let session = null;
       let data = {};
+      const params = new URLSearchParams(window.location.search);
+      const publicToken = params.get('token');
       let categoriesGrid;
       let uncategorizedCardsGrid;
       const cardGrids = [];
       const cardImageRegex = /(https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp))/i;
+      let createStarterCategories = false;
 
-      buttonCreateCategory.addEventListener('click', () => createCategory('', []));
+      buttonCreateCategory.addEventListener('click', () => {
+        if (settings.allowCategoryEditing === false) {
+          setStatus('This study uses fixed categories, so new categories cannot be added.', 'error');
+          return;
+        }
+        createCategory('', []);
+      });
       buttonSubmitResult.addEventListener('click', submitResult);
       buttonExportResult.addEventListener('click', exportResult);
 
@@ -207,6 +216,36 @@
         statusEl.textContent = message;
         statusEl.className = 'status';
         if (type) statusEl.classList.add(type);
+      }
+
+      function normalizeArray(value) {
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (_error) {
+            return value.trim() ? [value] : [];
+          }
+        }
+        return [];
+      }
+
+      function getStoredSession() {
+        const rawSession = sessionStorage.getItem('cardSortSession') || localStorage.getItem('cardSortSession');
+        if (!rawSession) return null;
+
+        try {
+          const parsed = JSON.parse(rawSession);
+          parsed.cards = normalizeArray(parsed.cards);
+          parsed.categories = normalizeArray(parsed.categories);
+          return parsed;
+        } catch (_error) {
+          sessionStorage.removeItem('cardSortSession');
+          localStorage.removeItem('cardSortSession');
+          localStorage.removeItem('cardSortSession');
+          return null;
+        }
       }
 
       function buildDataFromTemplate(template) {
@@ -400,6 +439,7 @@
 
           setStatus('Result submitted successfully.', 'success');
           sessionStorage.removeItem('cardSortSession');
+          localStorage.removeItem('cardSortSession');
         } catch (error) {
           setStatus(error.message || 'Unable to submit the result.', 'error');
         }
@@ -422,17 +462,29 @@
             participant_id: null,
             template_id: null,
             study_name: 'Legacy card sort',
+            participant_name: 'Legacy session',
           };
+          studyHeading.textContent = 'Legacy card sort';
           data = legacyData;
+          if (!Array.isArray(data['#'])) data['#'] = [];
+          if (!data['?']) data['?'] = saveSettings(settings);
+          if (Object.keys(data).filter((key) => !reservedKeys.includes(key) && key !== '#').length === 0 && settings.allowCategoryEditing !== false) {
+            createStarterCategories = true;
+          }
         } else {
-          const raw = sessionStorage.getItem('cardSortSession');
-          if (!raw) {
+          session = getStoredSession();
+          if (!session) {
             setStatus('No active participant session was found. Start from the study link.', 'error');
             buttonSubmitResult.disabled = true;
+            buttonCreateCategory.disabled = true;
+            if (publicToken) {
+              window.location.href = 'index.html?token=' + encodeURIComponent(publicToken);
+            }
             return;
           }
 
-          session = JSON.parse(raw);
+          sessionStorage.setItem('cardSortSession', JSON.stringify(session));
+          localStorage.setItem('cardSortSession', JSON.stringify(session));
           studyHeading.textContent = session.study_name + ' · ' + session.participant_name;
           buildDataFromTemplate(session);
         }
@@ -448,7 +500,7 @@
           createCard(text, uncategorizedCardsGrid);
         }
 
-        if ((data['#'] || []).length === 0 && document.querySelectorAll('.category').length === 0) {
+        if (document.querySelectorAll('.category').length === 0 && (createStarterCategories || ((data['#'] || []).length === 0 && settings.allowCategoryEditing !== false))) {
           createCategory();
           createCategory();
         }

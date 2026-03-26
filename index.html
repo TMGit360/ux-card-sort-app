@@ -200,7 +200,8 @@
           if (error) throw error;
           const session = Array.isArray(data) ? data[0] : data;
           sessionStorage.setItem('cardSortSession', JSON.stringify(session));
-          window.location.href = 'card-sort.html';
+          localStorage.setItem('cardSortSession', JSON.stringify(session));
+          window.location.href = 'card-sort.html?token=' + encodeURIComponent(publicToken);
         } catch (error) {
           participantStatus.textContent = error.message || 'Unable to start this study.';
           participantStatus.classList.add('error');
