@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Card Sort</title>
+    <style>
+      body, html {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background: #f8fafc;
+        color: #111827;
+      }
+      * { box-sizing: border-box; }
+      .main-layout {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        grid-template-rows: auto 1fr;
+        gap: 12px;
+        grid-template-areas:
+          "top top"
+          "left right";
+        margin: 12px;
+      }
+      .toolbar, .panel {
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+      }
+      .toolbar {
+        grid-area: top;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 18px;
+        flex-wrap: wrap;
+      }
+      .toolbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      .toolbar button {
+        border: 0;
+        background: #2563eb;
+        color: #fff;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      .toolbar button.secondary { background: #0f172a; }
+      .panel { padding: 14px; }
+      .uncategorized-cards { grid-area: left; }
+      .categories { grid-area: right; }
+      .grid { position: relative; }
+      .item { display: block; position: absolute; }
+      .item.muuri-item-dragging { z-index: 3; }
+      .item.muuri-item-releasing { z-index: 2; }
+      .item.muuri-item-hidden { z-index: 0; }
+      .item-content { position: relative; width: 100%; height: 100%; }
+      .uncategorized-cards .item,
+      .category-cards .item { width: 100%; }
+      .card {
+        width: 220px;
+        max-width: calc(100vw - 70px);
+        margin: 6px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-size: 16px;
+        background: #fef08a;
+        box-shadow: 0 2px 10px rgba(146, 64, 14, 0.18);
+        cursor: grab;
+      }
+      .muuri-item-placeholder .card {
+        pointer-events: none;
+        background: transparent;
+        border: 2px dashed #94a3b8;
+        color: #64748b;
+        box-shadow: none;
+      }
+      .category {
+        margin: 6px 12px 24px 6px;
+        padding: 10px;
+        background: #fff;
+        border: 1px solid #dbeafe;
+        border-radius: 14px;
+      }
+      .category .title {
+        width: 100%;
+        max-width: 280px;
+        padding: 8px 6px;
+        margin-bottom: 10px;
+        border: 0;
+        border-bottom: 1px solid #bfdbfe;
+        font-size: 18px;
+      }
+      .category-cards .grid { min-height: 100px; }
+      .category-drag-handle {
+        width: 100%;
+        height: 16px;
+        background: radial-gradient(#cbd5e1 35%, transparent 36%) 0 0;
+        background-size: 8px 8px;
+        cursor: grab;
+        margin-bottom: 8px;
+      }
+      .status { min-height: 22px; color: #475569; }
+      .error { color: #b91c1c; }
+      .success { color: #166534; }
+      @media (max-width: 860px) {
+        .main-layout {
+          grid-template-columns: 1fr;
+          grid-template-areas:
+            "top"
+            "left"
+            "right";
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main-layout">
+      <div class="toolbar">
+        <div>
+          <strong id="study-heading">Card Sort</strong>
+          <div class="status" id="status">Load a session to begin.</div>
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn-create-category">Create a new category</button>
+          <button class="secondary btn-submit-result">Submit result</button>
+          <button class="btn-export-result">Export JSON</button>
+        </div>
+      </div>
+      <div class="panel uncategorized-cards">
+        <h3>Unsorted cards</h3>
+        <div class="grid"></div>
+      </div>
+      <div class="panel categories">
+        <h3>Categories</h3>
+        <div class="grid"></div>
+      </div>
+    </div>
+    <template class="card-template">
+      <div class="item"><div class="item-content"><div class="card"></div></div></div>
+    </template>
+    <template class="category-template">
+      <div class="item">
+        <div class="item-content">
+          <div class="category">
+            <div class="category-drag-handle"></div>
+            <input class="title" placeholder="Type a name" />
+            <div class="category-cards"><div class="grid"></div></div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="muuri-0.9.5.min.js"></script>
+    <script src="pako-2.0.4.min.js"></script>
+    <script src="common-scripts.js"></script>
+    <script src="supabase-config.js"></script>
+    <script>
+      const {
+        settingsDefaults,
+        loadSettings,
+        saveSettings,
+        reservedKeys,
+        splitToArray,
+        shuffleArray,
+        downloadJson,
+        debounce,
+      } = window.CardSortCommon;
+
+      const config = window.CARD_SORT_SUPABASE_CONFIG || {};
+      const hasSupabaseConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && !config.supabaseUrl.includes('YOUR_PROJECT_ID'));
+      const supabase = hasSupabaseConfig ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+      const statusEl = document.getElementById('status');
+      const studyHeading = document.getElementById('study-heading');
+      const buttonCreateCategory = document.querySelector('.btn-create-category');
+      const buttonSubmitResult = document.querySelector('.btn-submit-result');
+      const buttonExportResult = document.querySelector('.btn-export-result');
+      const cardTemplate = document.querySelector('.card-template');
+      const categoryTemplate = document.querySelector('.category-template');
+      const uncategorizedGridElement = document.querySelector('.uncategorized-cards .grid');
+      const categoriesGridElement = document.querySelector('.categories .grid');
+      const settings = Object.assign({}, settingsDefaults);
+      let session = null;
+      let data = {};
+      let categoriesGrid;
+      let uncategorizedCardsGrid;
+      const cardGrids = [];
+      const cardImageRegex = /(https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp))/i;
+
+      buttonCreateCategory.addEventListener('click', () => createCategory('', []));
+      buttonSubmitResult.addEventListener('click', submitResult);
+      buttonExportResult.addEventListener('click', exportResult);
+
+      function setStatus(message, type = '') {
+        statusEl.textContent = message;
+        statusEl.className = 'status';
+        if (type) statusEl.classList.add(type);
+      }
+
+      function buildDataFromTemplate(template) {
+        const templateSettings = {
+          allowCategoryEditing: template.allow_category_editing !== false,
+          isRandomized: Boolean(template.is_randomized),
+        };
+        Object.assign(settings, templateSettings);
+        const initialCards = settings.isRandomized ? shuffleArray(template.cards || []) : [...(template.cards || [])];
+        data = { '#': initialCards, '?': saveSettings(settings) };
+        for (const category of (template.categories || [])) data[category] = [];
+      }
+
+      function initGrids() {
+        categoriesGrid = new Muuri(categoriesGridElement, {
+          dragEnabled: true,
+          dragHandle: '.category-drag-handle',
+        });
+        uncategorizedCardsGrid = new Muuri(uncategorizedGridElement, {
+          dragEnabled: true,
+          dragSort: () => cardGrids,
+          dragPlaceholder: {
+            enabled: true,
+            createElement: (item) => item.getElement().cloneNode(true),
+          },
+          dragContainer: document.body,
+        });
+        cardGrids.push(uncategorizedCardsGrid);
+        uncategorizedCardsGrid.on('dragEnd', () => {
+          debouncedUpdateData();
+          categoriesGrid.refreshItems().layout();
+        });
+        window.addEventListener('resize', debounce(() => categoriesGrid.refreshItems().layout(), Muuri.defaultOptions.layoutOnResize));
+      }
+
+      function createCard(text, categoryGrid) {
+        const targetGrid = categoryGrid || uncategorizedCardsGrid;
+        const itemElement = document.importNode(cardTemplate.content.children[0], true);
+        const cardElement = itemElement.querySelector('.card');
+        const hasImage = text.match(cardImageRegex);
+        if (hasImage) {
+          const [textBefore, imageUrl, textAfter] = text.split(cardImageRegex);
+          const cardChildElements = [];
+          if (textBefore.trim()) {
+            const span = document.createElement('span');
+            span.textContent = textBefore;
+            cardChildElements.push(span);
+          }
+          const imageElement = document.createElement('img');
+          imageElement.src = imageUrl;
+          imageElement.style.width = '100%';
+          imageElement.style.borderRadius = '8px';
+          imageElement.onload = () => targetGrid.refreshItems().layout();
+          cardChildElements.push(imageElement);
+          if (textAfter.trim()) {
+            const span = document.createElement('span');
+            span.textContent = textAfter;
+            cardChildElements.push(span);
+          }
+          cardElement.replaceChildren(...cardChildElements);
+        } else {
+          cardElement.textContent = text;
+        }
+        cardElement.setAttribute('data-text', text);
+        targetGrid.show(targetGrid.add([itemElement], { active: false }));
+      }
+
+      function createCategory(name, cards) {
+        const itemElement = document.importNode(categoryTemplate.content.children[0], true);
+        const titleInput = itemElement.querySelector('.title');
+        titleInput.value = name || '';
+        titleInput.disabled = settings.allowCategoryEditing === false;
+        titleInput.addEventListener('input', debouncedUpdateData);
+        categoriesGrid.show(categoriesGrid.add([itemElement], { active: false, index: name ? -1 : 0 }), {
+          onFinish: () => {
+            const categoryGrid = new Muuri(itemElement.querySelector('.grid'), {
+              dragEnabled: true,
+              dragSort: () => cardGrids,
+              dragPlaceholder: {
+                enabled: true,
+                createElement: (item) => item.getElement().cloneNode(true),
+              },
+              dragContainer: document.body,
+            });
+            categoryGrid.on('dragReleaseEnd', () => {
+              categoryGrid.synchronize();
+              debouncedUpdateData();
+              categoriesGrid.refreshItems().layout();
+            });
+            cardGrids.push(categoryGrid);
+            for (const text of cards || []) createCard(text, categoryGrid);
+          },
+        });
+      }
+
+      function getUniqueCategoryName(originalName, result) {
+        let candidateName = originalName;
+        let counter = 1;
+        while (candidateName in result) {
+          counter += 1;
+          candidateName = `${originalName} (${counter})`;
+        }
+        return candidateName;
+      }
+
+      function updateData() {
+        let untitledCounter = 0;
+        const nextData = {};
+        for (const categoryElement of document.querySelectorAll('.category')) {
+          let categoryName = categoryElement.querySelector('.title').value.trim();
+          if (!categoryName) {
+            untitledCounter += 1;
+            categoryName = `(Untitled ${untitledCounter})`;
+          }
+          if (categoryName in nextData) categoryName = getUniqueCategoryName(categoryName, nextData);
+          nextData[categoryName] = [];
+          for (const cardElement of categoryElement.querySelectorAll('.card')) {
+            nextData[categoryName].push(cardElement.getAttribute('data-text'));
+          }
+        }
+        nextData['#'] = [];
+        for (const cardElement of document.querySelectorAll('.uncategorized-cards .card')) {
+          nextData['#'].push(cardElement.getAttribute('data-text'));
+        }
+        nextData['?'] = saveSettings(settings);
+        data = nextData;
+      }
+
+      const debouncedUpdateData = debounce(updateData, 150);
+
+      function getCleanResult() {
+        updateData();
+        const cleanedData = {};
+        for (const [key, value] of Object.entries(data)) {
+          if (reservedKeys.includes(key)) continue;
+          cleanedData[key] = value;
+        }
+        return cleanedData;
+      }
+
+      async function submitResult() {
+        if (!supabase || !session) {
+          setStatus('Supabase session not available.', 'error');
+          return;
+        }
+        try {
+          setStatus('Submitting result…');
+          const resultJson = getCleanResult();
+          const { error } = await supabase.rpc('submit_card_sort', {
+            p_public_token: session.public_token,
+            p_participant_id: session.participant_id,
+            p_template_id: session.template_id,
+            p_result_json: resultJson,
+          });
+          if (error) throw error;
+          setStatus('Result submitted successfully.', 'success');
+          sessionStorage.removeItem('cardSortSession');
+        } catch (error) {
+          setStatus(error.message || 'Unable to submit the result.', 'error');
+        }
+      }
+
+      function exportResult() {
+        const resultJson = getCleanResult();
+        downloadJson(`card-sort-${session?.participant_id || 'result'}.json`, resultJson);
+      }
+
+      async function boot() {
+        const legacyHash = window.location.hash.slice(1);
+        if (legacyHash) {
+          const legacyData = await window.CardSortCommon.loadFromString(legacyHash);
+          const legacySettings = loadSettings(legacyData);
+          Object.assign(settings, legacySettings);
+          session = {
+            public_token: null,
+            participant_id: null,
+            template_id: null,
+            study_name: 'Legacy card sort',
+          };
+          data = legacyData;
+        } else {
+          const raw = sessionStorage.getItem('cardSortSession');
+          if (!raw) {
+            setStatus('No active participant session was found. Start from the study link.', 'error');
+            buttonSubmitResult.disabled = true;
+            return;
+          }
+          session = JSON.parse(raw);
+          studyHeading.textContent = session.study_name + ' · ' + session.participant_name;
+          buildDataFromTemplate(session);
+        }
+        initGrids();
+        for (const categoryName of Object.keys(data)) {
+          if (reservedKeys.includes(categoryName) || categoryName === '#') continue;
+          createCategory(categoryName, data[categoryName]);
+        }
+        for (const text of data['#'] || []) createCard(text, uncategorizedCardsGrid);
+        if ((data['#'] || []).length === 0 && document.querySelectorAll('.category').length === 0) {
+          createCategory();
+          createCategory();
+        }
+        setStatus('Drag cards into categories, then submit when finished.');
+      }
+
+      boot();
+    </script>
+  </body>
+</html>

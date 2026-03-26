@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Card Sort Administration</title>
+    <style>
+      body { margin: 0; font-family: Arial, sans-serif; background: #f5f7fb; color: #111827; }
+      * { box-sizing: border-box; }
+      .page { max-width: 1440px; margin: 0 auto; padding: 24px 18px 60px; }
+      .shell { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+      .panel {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        padding: 20px;
+      }
+      h1, h2, h3, h4 { margin-top: 0; }
+      label { display: block; font-weight: 700; margin-bottom: 8px; }
+      input, textarea, button, select {
+        width: 100%;
+        font: inherit;
+        border-radius: 10px;
+      }
+      input, textarea, select {
+        border: 1px solid #cbd5e1;
+        padding: 11px 12px;
+        margin-bottom: 14px;
+      }
+      textarea { min-height: 110px; resize: vertical; }
+      button {
+        border: 0;
+        background: #2563eb;
+        color: #fff;
+        padding: 11px 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button.secondary { background: #0f172a; }
+      button.ghost { background: #eef2ff; color: #1e3a8a; }
+      button.inline { width: auto; }
+      .muted { color: #6b7280; }
+      .status { min-height: 22px; font-size: 14px; }
+      .error { color: #b91c1c; }
+      .success { color: #166534; }
+      .hidden { display: none; }
+      .stack > * + * { margin-top: 16px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .subgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+      .chip {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 8px 10px; border-radius: 999px; background: #eff6ff; color: #1d4ed8;
+      }
+      .study-card {
+        border: 1px solid #dbeafe; border-radius: 12px; padding: 14px; margin-bottom: 12px;
+      }
+      .study-card.active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
+      .directory-table { width: 100%; border-collapse: collapse; }
+      .directory-table th, .directory-table td { border-bottom: 1px solid #e5e7eb; padding: 10px 8px; text-align: left; vertical-align: top; }
+      .directory-table th { font-size: 13px; text-transform: uppercase; color: #64748b; }
+      .result-card {
+        border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; margin-bottom: 12px; background: #fff;
+      }
+      .category-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+      .category-box { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #f8fafc; }
+      .category-box ul { margin: 10px 0 0; padding-left: 20px; }
+      .chart { min-height: 420px; }
+      .tiny { font-size: 12px; color: #64748b; }
+      code { background: #f1f5f9; padding: 2px 6px; border-radius: 6px; }
+      @media (max-width: 1080px) {
+        .shell, .subgrid, .row { grid-template-columns: 1fr; }
+      }
+    </style>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Card Sort Administration</h1>
+      <div class="shell">
+        <aside class="panel stack">
+          <section id="auth-panel">
+            <h2>Admin sign in</h2>
+            <label for="auth-email">Admin email</label>
+            <input id="auth-email" type="email" placeholder="name@example.com" />
+            <label for="auth-password">Password</label>
+            <input id="auth-password" type="password" />
+            <div class="row">
+              <button id="sign-in-button" type="button">Sign in</button>
+              <button id="sign-up-button" type="button" class="secondary">Create account</button>
+            </div>
+            <div id="auth-status" class="status"></div>
+          </section>
+
+          <section id="session-panel" class="hidden">
+            <h2>Session</h2>
+            <div class="muted" id="session-email"></div>
+            <button id="sign-out-button" class="ghost" type="button">Sign out</button>
+          </section>
+
+          <section id="study-setup-panel" class="hidden">
+            <h2>Study access</h2>
+            <div class="row">
+              <button id="show-create-study" class="inline" type="button">New study</button>
+              <button id="show-join-study" class="inline secondary" type="button">Join existing study</button>
+            </div>
+
+            <div id="create-study-box" class="stack">
+              <label for="new-study-id">Study ID</label>
+              <input id="new-study-id" placeholder="ARTS_2026_A" />
+              <label for="new-study-name">Study name</label>
+              <input id="new-study-name" placeholder="Yale faculty card sort" />
+              <label for="new-study-key">Study key</label>
+              <input id="new-study-key" placeholder="Shared administrator key" />
+              <label for="template-name">Template name</label>
+              <input id="template-name" placeholder="Default template" value="Default template" />
+              <label for="new-cards">Cards</label>
+              <textarea id="new-cards" placeholder="One card per line"></textarea>
+              <label for="new-categories">Starting categories</label>
+              <textarea id="new-categories" placeholder="Optional, one per line"></textarea>
+              <label><input id="allow-edit" type="checkbox" checked /> Allow category editing</label>
+              <label><input id="randomize" type="checkbox" /> Randomize card order</label>
+              <button id="create-study-button" type="button">Create study</button>
+            </div>
+
+            <div id="join-study-box" class="stack hidden">
+              <label for="join-study-id">Study ID</label>
+              <input id="join-study-id" placeholder="ARTS_2026_A" />
+              <label for="join-study-key">Study key</label>
+              <input id="join-study-key" placeholder="Shared administrator key" />
+              <button id="join-study-button" type="button">Link my account to study</button>
+            </div>
+            <div id="study-setup-status" class="status"></div>
+          </section>
+
+          <section id="study-list-panel" class="hidden">
+            <h2>My studies</h2>
+            <div id="study-list"></div>
+          </section>
+        </aside>
+
+        <main class="stack">
+          <section class="panel hidden" id="selected-study-panel">
+            <div class="row">
+              <div>
+                <h2 id="selected-study-title">Study</h2>
+                <div class="muted" id="selected-study-subtitle"></div>
+              </div>
+              <div>
+                <label for="participant-link">Participant link</label>
+                <input id="participant-link" readonly />
+                <button id="copy-link-button" class="ghost" type="button">Copy participant link</button>
+              </div>
+            </div>
+            <div class="subgrid" style="margin-top: 18px;">
+              <div>
+                <h3>Update study template</h3>
+                <label for="edit-template-name">Template name</label>
+                <input id="edit-template-name" />
+                <label for="edit-cards">Cards</label>
+                <textarea id="edit-cards"></textarea>
+                <label for="edit-categories">Starting categories</label>
+                <textarea id="edit-categories"></textarea>
+                <label><input id="edit-allow-edit" type="checkbox" checked /> Allow category editing</label>
+                <label><input id="edit-randomize" type="checkbox" /> Randomize card order</label>
+                <button id="save-template-button" type="button">Save template</button>
+                <div id="template-status" class="status"></div>
+              </div>
+              <div>
+                <h3>Study admins</h3>
+                <div id="study-admins" class="chips"></div>
+                <p class="tiny">All attached admins can manage this study, review participant data, and generate combined Sankey diagrams.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel hidden" id="directory-panel">
+            <h2>Participant directory</h2>
+            <div class="row">
+              <div>
+                <label for="participant-search">Find by first name, last name, or user ID</label>
+                <input id="participant-search" placeholder="Search" />
+              </div>
+              <div>
+                <label for="submission-filter">Submission view</label>
+                <select id="submission-filter">
+                  <option value="latest">Latest submission per participant</option>
+                  <option value="all">All submissions</option>
+                </select>
+              </div>
+            </div>
+            <div style="overflow:auto;">
+              <table class="directory-table">
+                <thead>
+                  <tr>
+                    <th>Select</th>
+                    <th>User ID</th>
+                    <th>Name</th>
+                    <th>Submission ID</th>
+                    <th>Submitted</th>
+                    <th>Total submissions</th>
+                  </tr>
+                </thead>
+                <tbody id="directory-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel hidden" id="individual-panel">
+            <h2>Individual result</h2>
+            <div id="individual-result"></div>
+          </section>
+
+          <section class="panel hidden" id="combined-panel">
+            <h2>Combined analysis</h2>
+            <p class="muted">Choose specific submissions below or leave everything selected to aggregate the full study.</p>
+            <div id="selection-summary" class="status"></div>
+            <label for="merge-map">Category merge map</label>
+            <textarea id="merge-map" placeholder="Example:
+faculty support=Support
+student support=Support"></textarea>
+            <button id="render-sankey-button" type="button">Render Sankey diagrams</button>
+            <div class="subgrid" style="margin-top: 18px;">
+              <div>
+                <h3>Card → category</h3>
+                <div id="card-category-chart" class="chart"></div>
+              </div>
+              <div>
+                <h3>Original category → merged category</h3>
+                <div id="category-merge-chart" class="chart"></div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="common-scripts.js"></script>
+    <script src="supabase-config.js"></script>
+    <script>
+      google.charts.load('current', { packages: ['sankey'] });
+
+      const {
+        splitToArray,
+        parseCategoryMergeMap,
+        buildCardCategorySankeyRows,
+        buildOriginalMergedSankeyRows,
+        escapeHtml,
+      } = window.CardSortCommon;
+
+      const config = window.CARD_SORT_SUPABASE_CONFIG || {};
+      const hasSupabaseConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && !config.supabaseUrl.includes('YOUR_PROJECT_ID'));
+      const supabase = hasSupabaseConfig ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+
+      let sessionUser = null;
+      let studies = [];
+      let selectedStudy = null;
+      let selectedTemplate = null;
+      let selectedStudyAdmins = [];
+      let participantDirectory = [];
+      let selectedSubmissionIds = new Set();
+
+      const authPanel = document.getElementById('auth-panel');
+      const sessionPanel = document.getElementById('session-panel');
+      const studySetupPanel = document.getElementById('study-setup-panel');
+      const studyListPanel = document.getElementById('study-list-panel');
+      const selectedStudyPanel = document.getElementById('selected-study-panel');
+      const directoryPanel = document.getElementById('directory-panel');
+      const individualPanel = document.getElementById('individual-panel');
+      const combinedPanel = document.getElementById('combined-panel');
+
+      function setStatus(id, message, type = '') {
+        const el = document.getElementById(id);
+        el.textContent = message;
+        el.className = 'status';
+        if (type) el.classList.add(type);
+      }
+
+      document.getElementById('show-create-study').addEventListener('click', () => {
+        document.getElementById('create-study-box').classList.remove('hidden');
+        document.getElementById('join-study-box').classList.add('hidden');
+      });
+      document.getElementById('show-join-study').addEventListener('click', () => {
+        document.getElementById('join-study-box').classList.remove('hidden');
+        document.getElementById('create-study-box').classList.add('hidden');
+      });
+
+      document.getElementById('sign-in-button').addEventListener('click', signIn);
+      document.getElementById('sign-up-button').addEventListener('click', signUp);
+      document.getElementById('sign-out-button').addEventListener('click', signOut);
+      document.getElementById('create-study-button').addEventListener('click', createStudy);
+      document.getElementById('join-study-button').addEventListener('click', joinStudy);
+      document.getElementById('save-template-button').addEventListener('click', saveTemplate);
+      document.getElementById('copy-link-button').addEventListener('click', async () => {
+        await navigator.clipboard.writeText(document.getElementById('participant-link').value);
+      });
+      document.getElementById('participant-search').addEventListener('input', renderDirectory);
+      document.getElementById('submission-filter').addEventListener('change', renderDirectory);
+      document.getElementById('render-sankey-button').addEventListener('click', renderCombinedCharts);
+
+      async function signIn() {
+        if (!supabase) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return setStatus('auth-status', error.message, 'error');
+        setStatus('auth-status', 'Signed in.', 'success');
+      }
+
+      async function signUp() {
+        if (!supabase) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) return setStatus('auth-status', error.message, 'error');
+        setStatus('auth-status', 'Account created. Check your email if confirmation is enabled.', 'success');
+      }
+
+      async function signOut() {
+        await supabase.auth.signOut();
+      }
+
+      async function createStudy() {
+        const cards = splitToArray(document.getElementById('new-cards').value);
+        const categories = splitToArray(document.getElementById('new-categories').value);
+        const payload = {
+          p_study_id: document.getElementById('new-study-id').value.trim(),
+          p_study_name: document.getElementById('new-study-name').value.trim(),
+          p_study_key: document.getElementById('new-study-key').value.trim(),
+          p_template_name: document.getElementById('template-name').value.trim() || 'Default template',
+          p_cards: cards,
+          p_categories: categories,
+          p_allow_category_editing: document.getElementById('allow-edit').checked,
+          p_is_randomized: document.getElementById('randomize').checked,
+        };
+        const { data, error } = await supabase.rpc('create_study_with_template', payload);
+        if (error) return setStatus('study-setup-status', error.message, 'error');
+        setStatus('study-setup-status', 'Study created.', 'success');
+        await loadStudies();
+        const created = Array.isArray(data) ? data[0] : data;
+        if (created?.study_uuid) await selectStudy(created.study_uuid);
+      }
+
+      async function joinStudy() {
+        const { data, error } = await supabase.rpc('link_admin_to_study', {
+          p_study_id: document.getElementById('join-study-id').value.trim(),
+          p_study_key: document.getElementById('join-study-key').value.trim(),
+        });
+        if (error) return setStatus('study-setup-status', error.message, 'error');
+        setStatus('study-setup-status', 'Study linked to your account.', 'success');
+        await loadStudies();
+        const joined = Array.isArray(data) ? data[0] : data;
+        if (joined?.study_uuid) await selectStudy(joined.study_uuid);
+      }
+
+      async function loadStudies() {
+        const { data, error } = await supabase.from('admin_studies').select('*').order('study_name');
+        if (error) return setStatus('study-setup-status', error.message, 'error');
+        studies = data || [];
+        renderStudyList();
+      }
+
+      function renderStudyList() {
+        const container = document.getElementById('study-list');
+        container.innerHTML = '';
+        for (const study of studies) {
+          const div = document.createElement('div');
+          div.className = 'study-card' + (selectedStudy && selectedStudy.id === study.id ? ' active' : '');
+          div.innerHTML = `<strong>${escapeHtml(study.study_name)}</strong><br /><span class="tiny">${escapeHtml(study.study_id)}</span><br /><span class="tiny">Submissions: ${study.submission_count || 0}</span>`;
+          div.addEventListener('click', () => selectStudy(study.id));
+          container.appendChild(div);
+        }
+      }
+
+      async function selectStudy(studyUuid) {
+        const study = studies.find((item) => item.id === studyUuid);
+        if (!study) return;
+        selectedStudy = study;
+        renderStudyList();
+        const [{ data: templateData, error: templateError }, { data: adminData, error: adminError }, { data: directoryData, error: directoryError }] = await Promise.all([
+          supabase.from('sort_templates').select('*').eq('study_id', studyUuid).eq('is_active', true).order('created_at', { ascending: false }).limit(1),
+          supabase.from('study_admin_directory').select('*').eq('study_id', studyUuid).order('email'),
+          supabase.from('participant_submissions_admin').select('*').eq('study_id', studyUuid).order('submitted_at', { ascending: false })
+        ]);
+        if (templateError || adminError || directoryError) {
+          console.error(templateError || adminError || directoryError);
+          return;
+        }
+        selectedTemplate = (templateData || [])[0] || null;
+        selectedStudyAdmins = adminData || [];
+        participantDirectory = directoryData || [];
+        selectedSubmissionIds = new Set(participantDirectory.map((row) => row.submission_id));
+        renderSelectedStudy();
+        renderDirectory();
+        renderCombinedCharts();
+      }
+
+      function renderSelectedStudy() {
+        if (!selectedStudy) return;
+        selectedStudyPanel.classList.remove('hidden');
+        directoryPanel.classList.remove('hidden');
+        individualPanel.classList.remove('hidden');
+        combinedPanel.classList.remove('hidden');
+        document.getElementById('selected-study-title').textContent = selectedStudy.study_name;
+        document.getElementById('selected-study-subtitle').textContent = `Study ID: ${selectedStudy.study_id}`;
+        const participantLink = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '/') }index.html?token=${selectedStudy.public_token}`;
+        document.getElementById('participant-link').value = participantLink;
+        document.getElementById('study-admins').innerHTML = selectedStudyAdmins.map((admin) => `<span class="chip">${escapeHtml(admin.email)}</span>`).join('');
+        if (selectedTemplate) {
+          document.getElementById('edit-template-name').value = selectedTemplate.template_name || '';
+          document.getElementById('edit-cards').value = (selectedTemplate.cards || []).join('\n');
+          document.getElementById('edit-categories').value = (selectedTemplate.categories || []).join('\n');
+          document.getElementById('edit-allow-edit').checked = selectedTemplate.allow_category_editing !== false;
+          document.getElementById('edit-randomize').checked = Boolean(selectedTemplate.is_randomized);
+        }
+      }
+
+      async function saveTemplate() {
+        if (!selectedStudy) return;
+        const payload = {
+          study_id: selectedStudy.id,
+          template_name: document.getElementById('edit-template-name').value.trim(),
+          cards: splitToArray(document.getElementById('edit-cards').value),
+          categories: splitToArray(document.getElementById('edit-categories').value),
+          allow_category_editing: document.getElementById('edit-allow-edit').checked,
+          is_randomized: document.getElementById('edit-randomize').checked,
+          is_active: true,
+          created_by: sessionUser.id,
+        };
+        const { error: deactivateError } = await supabase.from('sort_templates').update({ is_active: false }).eq('study_id', selectedStudy.id).eq('is_active', true);
+        if (deactivateError) return setStatus('template-status', deactivateError.message, 'error');
+        const { error } = await supabase.from('sort_templates').insert(payload);
+        if (error) return setStatus('template-status', error.message, 'error');
+        setStatus('template-status', 'Template saved. New participant sessions will use it.', 'success');
+        await selectStudy(selectedStudy.id);
+      }
+
+      function getVisibleDirectoryRows() {
+        const search = document.getElementById('participant-search').value.trim().toLowerCase();
+        const mode = document.getElementById('submission-filter').value;
+        let rows = [...participantDirectory];
+        if (mode === 'latest') {
+          const seen = new Set();
+          rows = rows.filter((row) => {
+            if (seen.has(row.participant_id)) return false;
+            seen.add(row.participant_id);
+            return true;
+          });
+        }
+        if (search) {
+          rows = rows.filter((row) => {
+            const haystack = [row.user_id, row.first_name, row.last_name, row.participant_name].join(' ').toLowerCase();
+            return haystack.includes(search);
+          });
+        }
+        return rows;
+      }
+
+      function renderDirectory() {
+        const body = document.getElementById('directory-body');
+        body.innerHTML = '';
+        const rows = getVisibleDirectoryRows();
+        for (const row of rows) {
+          const tr = document.createElement('tr');
+          const checked = selectedSubmissionIds.has(row.submission_id) ? 'checked' : '';
+          tr.innerHTML = `
+            <td><input type="checkbox" data-submission-id="${row.submission_id}" ${checked} /></td>
+            <td>${escapeHtml(row.user_id)}</td>
+            <td><button class="ghost inline open-result" data-submission-id="${row.submission_id}">${escapeHtml(row.participant_name)}</button></td>
+            <td>${escapeHtml(row.submission_id)}</td>
+            <td>${row.submitted_at ? new Date(row.submitted_at).toLocaleString() : ''}</td>
+            <td>${row.submission_count || 1}</td>
+          `;
+          body.appendChild(tr);
+        }
+        body.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+          checkbox.addEventListener('change', (event) => {
+            const id = event.target.getAttribute('data-submission-id');
+            if (event.target.checked) selectedSubmissionIds.add(id); else selectedSubmissionIds.delete(id);
+            updateSelectionSummary();
+          });
+        });
+        body.querySelectorAll('.open-result').forEach((button) => {
+          button.addEventListener('click', () => renderIndividualResult(button.getAttribute('data-submission-id')));
+        });
+        updateSelectionSummary();
+        if (rows[0]) renderIndividualResult(rows[0].submission_id);
+      }
+
+      function renderIndividualResult(submissionId) {
+        const target = document.getElementById('individual-result');
+        const row = participantDirectory.find((item) => item.submission_id === submissionId);
+        if (!row) {
+          target.innerHTML = '<p class="muted">No submission selected.</p>';
+          return;
+        }
+        const result = row.result_json || {};
+        const categoryHtml = Object.entries(result).map(([categoryName, cards]) => `
+          <div class="category-box">
+            <strong>${escapeHtml(categoryName)}</strong>
+            <ul>${(cards || []).map((card) => `<li>${escapeHtml(card)}</li>`).join('')}</ul>
+          </div>
+        `).join('');
+        target.innerHTML = `
+          <div class="result-card">
+            <strong>${escapeHtml(row.participant_name)}</strong><br />
+            <span class="tiny">User ID: ${escapeHtml(row.user_id)} · Submission ID: ${escapeHtml(row.submission_id)}</span>
+            <div class="category-columns" style="margin-top: 14px;">${categoryHtml}</div>
+          </div>
+        `;
+      }
+
+      function getSelectedSubmissionRows() {
+        return participantDirectory.filter((row) => selectedSubmissionIds.has(row.submission_id));
+      }
+
+      function updateSelectionSummary() {
+        const selectedRows = getSelectedSubmissionRows();
+        document.getElementById('selection-summary').textContent = `${selectedRows.length} submission(s) selected for combined analysis.`;
+      }
+
+      function renderCombinedCharts() {
+        const selectedRows = getSelectedSubmissionRows();
+        const mergeMap = parseCategoryMergeMap(document.getElementById('merge-map').value);
+        google.charts.setOnLoadCallback(() => {
+          drawSankey('card-category-chart', buildCardCategorySankeyRows(selectedRows, mergeMap), 'No data for card-to-category Sankey.');
+          drawSankey('category-merge-chart', buildOriginalMergedSankeyRows(selectedRows, mergeMap), 'No data for category-merge Sankey.');
+        });
+      }
+
+      function drawSankey(containerId, rows, emptyMessage) {
+        const container = document.getElementById(containerId);
+        if (!rows.length) {
+          container.innerHTML = '<p class="muted">' + emptyMessage + '</p>';
+          return;
+        }
+        const dataTable = new google.visualization.DataTable();
+        dataTable.addColumn('string', 'From');
+        dataTable.addColumn('string', 'To');
+        dataTable.addColumn('number', 'Weight');
+        dataTable.addRows(rows);
+        const chart = new google.visualization.Sankey(container);
+        chart.draw(dataTable, { width: '100%', height: 420 });
+      }
+
+      async function handleAuthChange(session) {
+        sessionUser = session?.user || null;
+        if (!sessionUser) {
+          authPanel.classList.remove('hidden');
+          sessionPanel.classList.add('hidden');
+          studySetupPanel.classList.add('hidden');
+          studyListPanel.classList.add('hidden');
+          selectedStudyPanel.classList.add('hidden');
+          directoryPanel.classList.add('hidden');
+          individualPanel.classList.add('hidden');
+          combinedPanel.classList.add('hidden');
+          return;
+        }
+        authPanel.classList.add('hidden');
+        sessionPanel.classList.remove('hidden');
+        studySetupPanel.classList.remove('hidden');
+        studyListPanel.classList.remove('hidden');
+        document.getElementById('session-email').textContent = sessionUser.email;
+        await loadStudies();
+        if (studies[0] && !selectedStudy) await selectStudy(studies[0].id);
+      }
+
+      async function boot() {
+        if (!supabase) {
+          setStatus('auth-status', 'Configure supabase-config.js before using admin features.', 'error');
+          return;
+        }
+        const { data } = await supabase.auth.getSession();
+        await handleAuthChange(data.session);
+        supabase.auth.onAuthStateChange(async (_event, session) => {
+          await handleAuthChange(session);
+        });
+      }
+
+      boot();
+    </script>
+  </body>
+</html>

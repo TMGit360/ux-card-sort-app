@@ -1,0 +1,4 @@
+window.CARD_SORT_SUPABASE_CONFIG = {
+  supabaseUrl: 'https://atgvqaqdzywshpmdhuok.supabase.co',
+  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0Z3ZxYXFkenl3c2hwbWRodW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDQ0MDEsImV4cCI6MjA5MDEyMDQwMX0.hlH0Sl9r4Upgo8FFQhDGX2Ocb034cXLDNHkz-mC1Fyk'
+};

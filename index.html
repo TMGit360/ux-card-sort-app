@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Card Sort Study Entry</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f5f7fb;
+        color: #1f2937;
+      }
+      * { box-sizing: border-box; }
+      .page {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 32px 20px 60px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 24px;
+      }
+      .panel {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      }
+      h1, h2, h3 { margin-top: 0; }
+      .muted { color: #6b7280; }
+      label { display: block; font-weight: 600; margin-bottom: 8px; }
+      input, textarea, button {
+        width: 100%;
+        font: inherit;
+        border-radius: 10px;
+      }
+      input, textarea {
+        border: 1px solid #cbd5e1;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+        background: #fff;
+      }
+      textarea { min-height: 140px; resize: vertical; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      button {
+        border: 0;
+        padding: 12px 16px;
+        cursor: pointer;
+        background: #2563eb;
+        color: #fff;
+        font-weight: 700;
+      }
+      button.secondary { background: #0f172a; }
+      button.ghost {
+        background: #eef2ff;
+        color: #1e3a8a;
+      }
+      .status {
+        min-height: 24px;
+        margin-top: 12px;
+        font-size: 14px;
+      }
+      .error { color: #b91c1c; }
+      .success { color: #166534; }
+      .study-meta {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        padding: 14px;
+        border-radius: 12px;
+        margin-bottom: 18px;
+      }
+      .hidden { display: none; }
+      code {
+        background: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      @media (max-width: 860px) {
+        .grid, .row { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Card Sort Study Entry</h1>
+      <p class="muted">Participants receive a study-specific link. Administrators can sign in from the panel on the right.</p>
+      <div class="grid">
+        <section class="panel">
+          <h2>Participant start</h2>
+          <div class="study-meta" id="study-meta">Checking study link…</div>
+          <form id="participant-form" class="hidden">
+            <div class="row">
+              <div>
+                <label for="first-name">First name</label>
+                <input id="first-name" required />
+              </div>
+              <div>
+                <label for="last-name">Last name</label>
+                <input id="last-name" required />
+              </div>
+            </div>
+            <button type="submit">Start card sort</button>
+            <div id="participant-status" class="status"></div>
+          </form>
+        </section>
+        <aside class="panel">
+          <h2>Administrator access</h2>
+          <p class="muted">Create and manage studies, look up users, and review combined results.</p>
+          <button class="secondary" id="admin-link-button">Open administrator page</button>
+          <hr style="margin: 22px 0; border: 0; border-top: 1px solid #e5e7eb;" />
+          <h3>Legacy study-link generator</h3>
+          <p class="muted">This remains available for quick local testing, but deployed studies should be created in the admin page.</p>
+          <label for="legacy-cards">Cards</label>
+          <textarea id="legacy-cards"></textarea>
+          <label for="legacy-categories">Categories</label>
+          <textarea id="legacy-categories"></textarea>
+          <label><input type="checkbox" id="legacy-allow-edit" checked /> Allow category editing</label>
+          <label><input type="checkbox" id="legacy-randomize" /> Randomize card order</label>
+          <button type="button" class="ghost" id="legacy-create-link">Create legacy link</button>
+          <div id="legacy-link" class="status"></div>
+        </aside>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="pako-2.0.4.min.js"></script>
+    <script src="common-scripts.js"></script>
+    <script src="supabase-config.js"></script>
+    <script>
+      const { splitToArray, saveSettings, saveToString, uncategorizedKey, settingsFlagsKey } = window.CardSortCommon;
+      const config = window.CARD_SORT_SUPABASE_CONFIG || {};
+      const hasSupabaseConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && !config.supabaseUrl.includes('YOUR_PROJECT_ID'));
+      const supabase = hasSupabaseConfig ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+
+      const studyMeta = document.getElementById('study-meta');
+      const participantForm = document.getElementById('participant-form');
+      const participantStatus = document.getElementById('participant-status');
+      const params = new URLSearchParams(window.location.search);
+      const publicToken = params.get('token');
+      let studyContext = null;
+
+      document.getElementById('admin-link-button').addEventListener('click', () => {
+        window.location.href = 'admin.html';
+      });
+
+      document.getElementById('legacy-create-link').addEventListener('click', async () => {
+        const cards = splitToArray(document.getElementById('legacy-cards').value);
+        const categories = splitToArray(document.getElementById('legacy-categories').value);
+        const data = { [uncategorizedKey]: cards, [settingsFlagsKey]: saveSettings({
+          allowCategoryEditing: document.getElementById('legacy-allow-edit').checked,
+          isRandomized: document.getElementById('legacy-randomize').checked,
+        }) };
+        for (const category of categories) data[category] = [];
+        const payload = await saveToString(data);
+        const baseUrl = window.location.href.replace(window.CardSortCommon.regexRemoveBasenameFromUrl, '/');
+        const url = baseUrl + 'card-sort.html#' + payload;
+        document.getElementById('legacy-link').innerHTML = '<a href="' + url + '">' + url + '</a>';
+      });
+
+      participantForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        participantStatus.textContent = '';
+        participantStatus.className = 'status';
+        if (!supabase || !studyContext) {
+          participantStatus.textContent = 'This study link is not configured yet.';
+          participantStatus.classList.add('error');
+          return;
+        }
+        const firstName = document.getElementById('first-name').value.trim();
+        const lastName = document.getElementById('last-name').value.trim();
+        try {
+          participantStatus.textContent = 'Starting session…';
+          const { data, error } = await supabase.rpc('start_participant_session', {
+            p_public_token: publicToken,
+            p_first_name: firstName,
+            p_last_name: lastName,
+          });
+          if (error) throw error;
+          const session = Array.isArray(data) ? data[0] : data;
+          sessionStorage.setItem('cardSortSession', JSON.stringify(session));
+          window.location.href = 'card-sort.html';
+        } catch (error) {
+          participantStatus.textContent = error.message || 'Unable to start this study.';
+          participantStatus.classList.add('error');
+        }
+      });
+
+      async function loadStudy() {
+        if (!publicToken) {
+          studyMeta.innerHTML = 'This page expects a study-specific link containing a token, such as <code>?token=...</code>.';
+          return;
+        }
+        if (!supabase) {
+          studyMeta.innerHTML = 'Add your Supabase URL and anon key to <code>supabase-config.js</code> before using the deployed flow.';
+          return;
+        }
+        const { data, error } = await supabase.rpc('get_public_study_context', { p_public_token: publicToken });
+        if (error) {
+          studyMeta.textContent = error.message || 'Unable to load study.';
+          studyMeta.classList.add('error');
+          return;
+        }
+        studyContext = Array.isArray(data) ? data[0] : data;
+        if (!studyContext) {
+          studyMeta.textContent = 'This study link is invalid or inactive.';
+          studyMeta.classList.add('error');
+          return;
+        }
+        studyMeta.innerHTML = '<strong>Study:</strong> ' + studyContext.study_name + '<br /><strong>Study ID:</strong> ' + studyContext.study_id + '<br /><span class="muted">Enter your first and last name exactly as instructed by the administrator.</span>';
+        participantForm.classList.remove('hidden');
+      }
+
+      loadStudy();
+    </script>
+  </body>
+</html>
