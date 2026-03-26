@@ -124,6 +124,18 @@
       </div>
     </div>
 
+
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        if (token) {
+          const target = 'card-sort.html?token=' + encodeURIComponent(token);
+          window.location.replace(target);
+        }
+      })();
+    </script>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="pako-2.0.4.min.js"></script>
     <script src="common-scripts.js"></script>
