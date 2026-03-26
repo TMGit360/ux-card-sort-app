@@ -438,12 +438,14 @@ student support=Support"></textarea>
           supabaseClient
             .from('participant_submissions_admin')
             .select('*')
-            .eq('study_id', studyUuid)
+            .eq('study_uuid', studyUuid)
             .order('submitted_at', { ascending: false })
         ]);
 
         if (templateError || adminError || directoryError) {
+          const message = (templateError || adminError || directoryError)?.message || 'Unable to load the selected study.';
           console.error(templateError || adminError || directoryError);
+          setStatus('template-status', message, 'error');
           return;
         }
 
@@ -457,6 +459,19 @@ student support=Support"></textarea>
         renderCombinedCharts();
       }
 
+      function normalizeJsonArray(value) {
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (_error) {
+            return value.trim() ? [value.trim()] : [];
+          }
+        }
+        return [];
+      }
+
       function renderSelectedStudy() {
         if (!selectedStudy) return;
 
@@ -468,7 +483,8 @@ student support=Support"></textarea>
         document.getElementById('selected-study-title').textContent = selectedStudy.study_name;
         document.getElementById('selected-study-subtitle').textContent = `Study ID: ${selectedStudy.study_id}`;
 
-        const participantLink = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '/') }card-sort.html?token=${selectedStudy.public_token}`;
+        const basePath = window.location.pathname.replace(/\/[^/]*$/, '/');
+        const participantLink = `${window.location.origin}${basePath}index.html?token=${encodeURIComponent(selectedStudy.public_token)}`;
         document.getElementById('participant-link').value = participantLink;
 
         document.getElementById('study-admins').innerHTML = selectedStudyAdmins
@@ -476,9 +492,11 @@ student support=Support"></textarea>
           .join('');
 
         if (selectedTemplate) {
+          const cards = normalizeJsonArray(selectedTemplate.cards);
+          const categories = normalizeJsonArray(selectedTemplate.categories);
           document.getElementById('edit-template-name').value = selectedTemplate.template_name || '';
-          document.getElementById('edit-cards').value = (selectedTemplate.cards || []).join('\n');
-          document.getElementById('edit-categories').value = (selectedTemplate.categories || []).join('\n');
+          document.getElementById('edit-cards').value = cards.join('\n');
+          document.getElementById('edit-categories').value = categories.join('\n');
           document.getElementById('edit-allow-edit').checked = selectedTemplate.allow_category_editing !== false;
           document.getElementById('edit-randomize').checked = Boolean(selectedTemplate.is_randomized);
         }
@@ -595,7 +613,15 @@ student support=Support"></textarea>
           return;
         }
 
-        const result = row.result_json || {};
+        const result = typeof row.result_json === 'string'
+          ? (function () {
+              try {
+                return JSON.parse(row.result_json);
+              } catch (_error) {
+                return {};
+              }
+            })()
+          : (row.result_json || {});
         const categoryHtml = Object.entries(result).map(([categoryName, cards]) => `
           <div class="category-box">
             <strong>${escapeText(categoryName)}</strong>

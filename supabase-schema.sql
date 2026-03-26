@@ -340,6 +340,7 @@ with submission_counts as (
   group by participant_id
 )
 select
+  s.id as study_uuid,
   s.study_id,
   sub.id as submission_id,
   p.id as participant_id,

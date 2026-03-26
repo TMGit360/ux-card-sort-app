@@ -580,10 +580,22 @@
         downloadJson(`card-sort-${session?.participant_id || 'result'}.json`, resultJson);
       }
 
+      function resetBoard() {
+        categoriesGridElement.innerHTML = '';
+        uncategorizedGridElement.innerHTML = '';
+        cardGrids.length = 0;
+        categoriesGrid = null;
+        uncategorizedCardsGrid = null;
+        data = {};
+      }
+
       async function bootFromSession() {
+        session.cards = normalizeArray(session.cards);
+        session.categories = normalizeArray(session.categories);
         sessionStorage.setItem('cardSortSession', JSON.stringify(session));
         localStorage.setItem('cardSortSession', JSON.stringify(session));
         studyHeading.textContent = session.study_name + ' · ' + session.participant_name;
+        resetBoard();
         buildDataFromTemplate(session);
         initGrids();
 

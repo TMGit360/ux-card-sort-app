@@ -124,18 +124,6 @@
       </div>
     </div>
 
-
-    <script>
-      (function () {
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
-        if (token) {
-          const target = 'card-sort.html?token=' + encodeURIComponent(token);
-          window.location.replace(target);
-        }
-      })();
-    </script>
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="pako-2.0.4.min.js"></script>
     <script src="common-scripts.js"></script>
@@ -220,6 +208,18 @@
         }
       });
 
+      function getStoredSession() {
+        const rawSession = sessionStorage.getItem('cardSortSession') || localStorage.getItem('cardSortSession');
+        if (!rawSession) return null;
+        try {
+          return JSON.parse(rawSession);
+        } catch (_error) {
+          sessionStorage.removeItem('cardSortSession');
+          localStorage.removeItem('cardSortSession');
+          return null;
+        }
+      }
+
       async function loadStudy() {
         if (!publicToken) {
           studyMeta.innerHTML = 'This page expects a study-specific link containing a token, such as <code>?token=...</code>.';
@@ -245,6 +245,12 @@
         if (!studyContext) {
           studyMeta.textContent = 'This study link is invalid or inactive.';
           studyMeta.classList.add('error');
+          return;
+        }
+
+        const storedSession = getStoredSession();
+        if (storedSession && storedSession.public_token === publicToken) {
+          window.location.replace('card-sort.html?token=' + encodeURIComponent(publicToken));
           return;
         }
 
