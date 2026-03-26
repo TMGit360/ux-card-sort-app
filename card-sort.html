@@ -105,6 +105,33 @@
       .status { min-height: 22px; color: #475569; }
       .error { color: #b91c1c; }
       .success { color: #166534; }
+      .start-gate {
+        margin: 12px;
+        padding: 18px;
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+      }
+      .start-gate.hidden { display: none; }
+      .start-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .start-gate label { display: block; font-weight: 600; margin-bottom: 6px; }
+      .start-gate input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        font: inherit;
+      }
+      .start-gate button {
+        margin-top: 14px;
+        border: 0;
+        background: #2563eb;
+        color: #fff;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 16px;
+        cursor: pointer;
+      }
       @media (max-width: 860px) {
         .main-layout {
           grid-template-columns: 1fr;
@@ -117,7 +144,25 @@
     </style>
   </head>
   <body>
-    <div class="main-layout">
+    <section class="start-gate hidden" id="start-gate">
+      <h2 id="start-gate-title">Start card sort</h2>
+      <p id="start-gate-description">Enter your name to begin.</p>
+      <form id="start-form">
+        <div class="start-grid">
+          <div>
+            <label for="participant-first-name">First name</label>
+            <input id="participant-first-name" required />
+          </div>
+          <div>
+            <label for="participant-last-name">Last name</label>
+            <input id="participant-last-name" required />
+          </div>
+        </div>
+        <button type="submit" id="start-form-button">Start card sort</button>
+        <div class="status" id="start-form-status"></div>
+      </form>
+    </section>
+    <div class="main-layout" id="main-layout">
       <div class="toolbar">
         <div>
           <strong id="study-heading">Card Sort</strong>
@@ -183,6 +228,13 @@
 
       const statusEl = document.getElementById('status');
       const studyHeading = document.getElementById('study-heading');
+      const mainLayout = document.getElementById('main-layout');
+      const startGate = document.getElementById('start-gate');
+      const startGateTitle = document.getElementById('start-gate-title');
+      const startGateDescription = document.getElementById('start-gate-description');
+      const startForm = document.getElementById('start-form');
+      const startFormButton = document.getElementById('start-form-button');
+      const startFormStatus = document.getElementById('start-form-status');
       const buttonCreateCategory = document.querySelector('.btn-create-category');
       const buttonSubmitResult = document.querySelector('.btn-submit-result');
       const buttonExportResult = document.querySelector('.btn-export-result');
@@ -218,6 +270,29 @@
         if (type) statusEl.classList.add(type);
       }
 
+      function setStartFormStatus(message, type = '') {
+        startFormStatus.textContent = message;
+        startFormStatus.className = 'status';
+        if (type) startFormStatus.classList.add(type);
+      }
+
+      function showStartGate(title, description) {
+        startGateTitle.textContent = title;
+        startGateDescription.textContent = description;
+        startGate.classList.remove('hidden');
+        mainLayout.style.display = 'none';
+      }
+
+      function hideStartGate() {
+        startGate.classList.add('hidden');
+        mainLayout.style.display = '';
+      }
+
+      function clearStoredSession() {
+        sessionStorage.removeItem('cardSortSession');
+        localStorage.removeItem('cardSortSession');
+      }
+
       function normalizeArray(value) {
         if (Array.isArray(value)) return value;
         if (typeof value === 'string') {
@@ -237,15 +312,46 @@
 
         try {
           const parsed = JSON.parse(rawSession);
+          if (publicToken && parsed.public_token !== publicToken) return null;
           parsed.cards = normalizeArray(parsed.cards);
           parsed.categories = normalizeArray(parsed.categories);
           return parsed;
         } catch (_error) {
-          sessionStorage.removeItem('cardSortSession');
-          localStorage.removeItem('cardSortSession');
-          localStorage.removeItem('cardSortSession');
+          clearStoredSession();
           return null;
         }
+      }
+
+      async function loadPublicStudyContext() {
+        if (!supabaseClient || !publicToken) return null;
+
+        const { data, error } = await supabaseClient.rpc('get_public_study_context', {
+          p_public_token: publicToken
+        });
+
+        if (error) throw error;
+        return Array.isArray(data) ? data[0] : data;
+      }
+
+      async function startParticipantSession(firstName, lastName) {
+        if (!supabaseClient || !publicToken) {
+          throw new Error('This study link is not configured correctly.');
+        }
+
+        const { data, error } = await supabaseClient.rpc('start_participant_session', {
+          p_public_token: publicToken,
+          p_first_name: firstName,
+          p_last_name: lastName,
+        });
+
+        if (error) throw error;
+
+        const nextSession = Array.isArray(data) ? data[0] : data;
+        nextSession.cards = normalizeArray(nextSession.cards);
+        nextSession.categories = normalizeArray(nextSession.categories);
+        sessionStorage.setItem('cardSortSession', JSON.stringify(nextSession));
+        localStorage.setItem('cardSortSession', JSON.stringify(nextSession));
+        return nextSession;
       }
 
       function buildDataFromTemplate(template) {
@@ -260,6 +366,30 @@
           data[category] = [];
         }
       }
+
+      startForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const firstName = document.getElementById('participant-first-name').value.trim();
+        const lastName = document.getElementById('participant-last-name').value.trim();
+
+        if (!firstName || !lastName) {
+          setStartFormStatus('Enter your first and last name to continue.', 'error');
+          return;
+        }
+
+        try {
+          startFormButton.disabled = true;
+          setStartFormStatus('Starting session...');
+          session = await startParticipantSession(firstName, lastName);
+          hideStartGate();
+          await bootFromSession();
+          setStatus('Drag cards into categories, then submit when finished.');
+        } catch (error) {
+          setStartFormStatus(error.message || 'Unable to start this study.', 'error');
+        } finally {
+          startFormButton.disabled = false;
+        }
+      });
 
       function initGrids() {
         categoriesGrid = new Muuri(categoriesGridElement, {
@@ -450,6 +580,28 @@
         downloadJson(`card-sort-${session?.participant_id || 'result'}.json`, resultJson);
       }
 
+      async function bootFromSession() {
+        sessionStorage.setItem('cardSortSession', JSON.stringify(session));
+        localStorage.setItem('cardSortSession', JSON.stringify(session));
+        studyHeading.textContent = session.study_name + ' · ' + session.participant_name;
+        buildDataFromTemplate(session);
+        initGrids();
+
+        for (const categoryName of Object.keys(data)) {
+          if (reservedKeys.includes(categoryName) || categoryName === '#') continue;
+          createCategory(categoryName, data[categoryName]);
+        }
+
+        for (const text of data['#'] || []) {
+          createCard(text, uncategorizedCardsGrid);
+        }
+
+        if (document.querySelectorAll('.category').length === 0 && (createStarterCategories || ((data['#'] || []).length === 0 && settings.allowCategoryEditing !== false))) {
+          createCategory();
+          createCategory();
+        }
+      }
+
       async function boot() {
         const legacyHash = window.location.hash.slice(1);
 
@@ -471,41 +623,64 @@
           if (Object.keys(data).filter((key) => !reservedKeys.includes(key) && key !== '#').length === 0 && settings.allowCategoryEditing !== false) {
             createStarterCategories = true;
           }
-        } else {
-          session = getStoredSession();
-          if (!session) {
-            setStatus('No active participant session was found. Start from the study link.', 'error');
+          initGrids();
+
+          for (const categoryName of Object.keys(data)) {
+            if (reservedKeys.includes(categoryName) || categoryName === '#') continue;
+            createCategory(categoryName, data[categoryName]);
+          }
+
+          for (const text of data['#'] || []) {
+            createCard(text, uncategorizedCardsGrid);
+          }
+
+          if (document.querySelectorAll('.category').length === 0 && (createStarterCategories || ((data['#'] || []).length === 0 && settings.allowCategoryEditing !== false))) {
+            createCategory();
+            createCategory();
+          }
+
+          setStatus('Drag cards into categories, then submit when finished.');
+          return;
+        }
+
+        if (!publicToken) {
+          setStatus('This page expects a study link with a token.', 'error');
+          buttonSubmitResult.disabled = true;
+          buttonCreateCategory.disabled = true;
+          return;
+        }
+
+        session = getStoredSession();
+        if (session) {
+          hideStartGate();
+          await bootFromSession();
+          setStatus('Drag cards into categories, then submit when finished.');
+          return;
+        }
+
+        clearStoredSession();
+
+        try {
+          const studyContext = await loadPublicStudyContext();
+          if (!studyContext) {
+            setStatus('This study link is invalid or inactive.', 'error');
             buttonSubmitResult.disabled = true;
             buttonCreateCategory.disabled = true;
-            if (publicToken) {
-              window.location.href = 'index.html?token=' + encodeURIComponent(publicToken);
-            }
             return;
           }
 
-          sessionStorage.setItem('cardSortSession', JSON.stringify(session));
-          localStorage.setItem('cardSortSession', JSON.stringify(session));
-          studyHeading.textContent = session.study_name + ' · ' + session.participant_name;
-          buildDataFromTemplate(session);
+          showStartGate(
+            studyContext.study_name || 'Start card sort',
+            'Enter your first and last name to begin this study.'
+          );
+          setStartFormStatus('');
+          document.getElementById('participant-first-name').focus();
+          setStatus('Enter your name to begin.');
+        } catch (error) {
+          setStatus(error.message || 'Unable to load this study.', 'error');
+          buttonSubmitResult.disabled = true;
+          buttonCreateCategory.disabled = true;
         }
-
-        initGrids();
-
-        for (const categoryName of Object.keys(data)) {
-          if (reservedKeys.includes(categoryName) || categoryName === '#') continue;
-          createCategory(categoryName, data[categoryName]);
-        }
-
-        for (const text of data['#'] || []) {
-          createCard(text, uncategorizedCardsGrid);
-        }
-
-        if (document.querySelectorAll('.category').length === 0 && (createStarterCategories || ((data['#'] || []).length === 0 && settings.allowCategoryEditing !== false))) {
-          createCategory();
-          createCategory();
-        }
-
-        setStatus('Drag cards into categories, then submit when finished.');
       }
 
       boot();

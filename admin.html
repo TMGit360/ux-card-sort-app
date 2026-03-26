@@ -468,7 +468,7 @@ student support=Support"></textarea>
         document.getElementById('selected-study-title').textContent = selectedStudy.study_name;
         document.getElementById('selected-study-subtitle').textContent = `Study ID: ${selectedStudy.study_id}`;
 
-        const participantLink = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '/') }index.html?token=${selectedStudy.public_token}`;
+        const participantLink = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '/') }card-sort.html?token=${selectedStudy.public_token}`;
         document.getElementById('participant-link').value = participantLink;
 
         document.getElementById('study-admins').innerHTML = selectedStudyAdmins
