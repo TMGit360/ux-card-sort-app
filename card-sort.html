@@ -138,6 +138,7 @@
         <div class="grid"></div>
       </div>
     </div>
+
     <template class="card-template">
       <div class="item"><div class="item-content"><div class="card"></div></div></div>
     </template>
@@ -153,26 +154,33 @@
       </div>
     </template>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabaseClient/supabaseClient-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="muuri-0.9.5.min.js"></script>
     <script src="pako-2.0.4.min.js"></script>
     <script src="common-scripts.js"></script>
-    <script src="supabaseClient-config.js"></script>
+    <script src="supabase-config.js"></script>
     <script>
       const {
         settingsDefaults,
         loadSettings,
         saveSettings,
         reservedKeys,
-        splitToArray,
         shuffleArray,
         downloadJson,
         debounce,
       } = window.CardSortCommon;
 
-      const config = window.CARD_SORT_supabaseClient_CONFIG || {};
-      const hassupabaseClientConfig = Boolean(config.supabaseClientUrl && config.supabaseClientAnonKey && !config.supabaseClientUrl.includes('YOUR_PROJECT_ID'));
-      const supabaseClientClient = hassupabaseClientConfig ? window.supabaseClient.createClient(config.supabaseClientUrl, config.supabaseClientAnonKey) : null;
+      const config = window.CARD_SORT_SUPABASE_CONFIG || {};
+      const hasSupabaseConfig = Boolean(
+        config.supabaseUrl &&
+        config.supabaseAnonKey &&
+        !config.supabaseUrl.includes('YOUR_PROJECT_ID')
+      );
+
+      const supabaseClient = hasSupabaseConfig
+        ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey)
+        : null;
+
       const statusEl = document.getElementById('status');
       const studyHeading = document.getElementById('study-heading');
       const buttonCreateCategory = document.querySelector('.btn-create-category');
@@ -183,6 +191,7 @@
       const uncategorizedGridElement = document.querySelector('.uncategorized-cards .grid');
       const categoriesGridElement = document.querySelector('.categories .grid');
       const settings = Object.assign({}, settingsDefaults);
+
       let session = null;
       let data = {};
       let categoriesGrid;
@@ -208,7 +217,9 @@
         Object.assign(settings, templateSettings);
         const initialCards = settings.isRandomized ? shuffleArray(template.cards || []) : [...(template.cards || [])];
         data = { '#': initialCards, '?': saveSettings(settings) };
-        for (const category of (template.categories || [])) data[category] = [];
+        for (const category of (template.categories || [])) {
+          data[category] = [];
+        }
       }
 
       function initGrids() {
@@ -216,6 +227,7 @@
           dragEnabled: true,
           dragHandle: '.category-drag-handle',
         });
+
         uncategorizedCardsGrid = new Muuri(uncategorizedGridElement, {
           dragEnabled: true,
           dragSort: () => cardGrids,
@@ -225,12 +237,18 @@
           },
           dragContainer: document.body,
         });
+
         cardGrids.push(uncategorizedCardsGrid);
+
         uncategorizedCardsGrid.on('dragEnd', () => {
           debouncedUpdateData();
           categoriesGrid.refreshItems().layout();
         });
-        window.addEventListener('resize', debounce(() => categoriesGrid.refreshItems().layout(), Muuri.defaultOptions.layoutOnResize));
+
+        window.addEventListener(
+          'resize',
+          debounce(() => categoriesGrid.refreshItems().layout(), Muuri.defaultOptions.layoutOnResize)
+        );
       }
 
       function createCard(text, categoryGrid) {
@@ -238,29 +256,35 @@
         const itemElement = document.importNode(cardTemplate.content.children[0], true);
         const cardElement = itemElement.querySelector('.card');
         const hasImage = text.match(cardImageRegex);
+
         if (hasImage) {
           const [textBefore, imageUrl, textAfter] = text.split(cardImageRegex);
           const cardChildElements = [];
+
           if (textBefore.trim()) {
             const span = document.createElement('span');
             span.textContent = textBefore;
             cardChildElements.push(span);
           }
+
           const imageElement = document.createElement('img');
           imageElement.src = imageUrl;
           imageElement.style.width = '100%';
           imageElement.style.borderRadius = '8px';
           imageElement.onload = () => targetGrid.refreshItems().layout();
           cardChildElements.push(imageElement);
+
           if (textAfter.trim()) {
             const span = document.createElement('span');
             span.textContent = textAfter;
             cardChildElements.push(span);
           }
+
           cardElement.replaceChildren(...cardChildElements);
         } else {
           cardElement.textContent = text;
         }
+
         cardElement.setAttribute('data-text', text);
         targetGrid.show(targetGrid.add([itemElement], { active: false }));
       }
@@ -271,26 +295,34 @@
         titleInput.value = name || '';
         titleInput.disabled = settings.allowCategoryEditing === false;
         titleInput.addEventListener('input', debouncedUpdateData);
-        categoriesGrid.show(categoriesGrid.add([itemElement], { active: false, index: name ? -1 : 0 }), {
-          onFinish: () => {
-            const categoryGrid = new Muuri(itemElement.querySelector('.grid'), {
-              dragEnabled: true,
-              dragSort: () => cardGrids,
-              dragPlaceholder: {
-                enabled: true,
-                createElement: (item) => item.getElement().cloneNode(true),
-              },
-              dragContainer: document.body,
-            });
-            categoryGrid.on('dragReleaseEnd', () => {
-              categoryGrid.synchronize();
-              debouncedUpdateData();
-              categoriesGrid.refreshItems().layout();
-            });
-            cardGrids.push(categoryGrid);
-            for (const text of cards || []) createCard(text, categoryGrid);
-          },
-        });
+
+        categoriesGrid.show(
+          categoriesGrid.add([itemElement], { active: false, index: name ? -1 : 0 }),
+          {
+            onFinish: () => {
+              const categoryGrid = new Muuri(itemElement.querySelector('.grid'), {
+                dragEnabled: true,
+                dragSort: () => cardGrids,
+                dragPlaceholder: {
+                  enabled: true,
+                  createElement: (item) => item.getElement().cloneNode(true),
+                },
+                dragContainer: document.body,
+              });
+
+              categoryGrid.on('dragReleaseEnd', () => {
+                categoryGrid.synchronize();
+                debouncedUpdateData();
+                categoriesGrid.refreshItems().layout();
+              });
+
+              cardGrids.push(categoryGrid);
+              for (const text of cards || []) {
+                createCard(text, categoryGrid);
+              }
+            },
+          }
+        );
       }
 
       function getUniqueCategoryName(originalName, result) {
@@ -306,22 +338,31 @@
       function updateData() {
         let untitledCounter = 0;
         const nextData = {};
+
         for (const categoryElement of document.querySelectorAll('.category')) {
           let categoryName = categoryElement.querySelector('.title').value.trim();
+
           if (!categoryName) {
             untitledCounter += 1;
             categoryName = `(Untitled ${untitledCounter})`;
           }
-          if (categoryName in nextData) categoryName = getUniqueCategoryName(categoryName, nextData);
+
+          if (categoryName in nextData) {
+            categoryName = getUniqueCategoryName(categoryName, nextData);
+          }
+
           nextData[categoryName] = [];
+
           for (const cardElement of categoryElement.querySelectorAll('.card')) {
             nextData[categoryName].push(cardElement.getAttribute('data-text'));
           }
         }
+
         nextData['#'] = [];
         for (const cardElement of document.querySelectorAll('.uncategorized-cards .card')) {
           nextData['#'].push(cardElement.getAttribute('data-text'));
         }
+
         nextData['?'] = saveSettings(settings);
         data = nextData;
       }
@@ -340,19 +381,23 @@
 
       async function submitResult() {
         if (!supabaseClient || !session) {
-          setStatus('supabaseClient session not available.', 'error');
+          setStatus('Supabase session not available.', 'error');
           return;
         }
+
         try {
-          setStatus('Submitting result…');
+          setStatus('Submitting result...');
           const resultJson = getCleanResult();
+
           const { error } = await supabaseClient.rpc('submit_card_sort', {
             p_public_token: session.public_token,
             p_participant_id: session.participant_id,
             p_template_id: session.template_id,
             p_result_json: resultJson,
           });
+
           if (error) throw error;
+
           setStatus('Result submitted successfully.', 'success');
           sessionStorage.removeItem('cardSortSession');
         } catch (error) {
@@ -367,6 +412,7 @@
 
       async function boot() {
         const legacyHash = window.location.hash.slice(1);
+
         if (legacyHash) {
           const legacyData = await window.CardSortCommon.loadFromString(legacyHash);
           const legacySettings = loadSettings(legacyData);
@@ -385,20 +431,28 @@
             buttonSubmitResult.disabled = true;
             return;
           }
+
           session = JSON.parse(raw);
           studyHeading.textContent = session.study_name + ' · ' + session.participant_name;
           buildDataFromTemplate(session);
         }
+
         initGrids();
+
         for (const categoryName of Object.keys(data)) {
           if (reservedKeys.includes(categoryName) || categoryName === '#') continue;
           createCategory(categoryName, data[categoryName]);
         }
-        for (const text of data['#'] || []) createCard(text, uncategorizedCardsGrid);
+
+        for (const text of data['#'] || []) {
+          createCard(text, uncategorizedCardsGrid);
+        }
+
         if ((data['#'] || []).length === 0 && document.querySelectorAll('.category').length === 0) {
           createCategory();
           createCategory();
         }
+
         setStatus('Drag cards into categories, then submit when finished.');
       }
 
