@@ -235,9 +235,10 @@ student support=Support"></textarea>
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabaseClient/supabaseClient-js@2"></script>
     <script src="common-scripts.js"></script>
-    <script src="supabase-config.js"></script>
+    <script src="supabaseClient-config.js"></script>
+    <script src="https://www.gstatic.com/charts/loader.js"></script>
     <script>
       google.charts.load('current', { packages: ['sankey'] });
 
@@ -249,9 +250,9 @@ student support=Support"></textarea>
         escapeHtml: escapeText,
       } = window.CardSortCommon;
 
-      const config = window.CARD_SORT_SUPABASE_CONFIG || {};
-      const hasSupabaseConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && !config.supabaseUrl.includes('YOUR_PROJECT_ID'));
-      const supabase = hasSupabaseConfig ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+      const config = window.CARD_SORT_supabaseClient_CONFIG || {};
+      const hassupabaseClientConfig = Boolean(config.supabaseClientUrl && config.supabaseClientAnonKey && !config.supabaseClientUrl.includes('YOUR_PROJECT_ID'));
+      const supabaseClientClient = hassupabaseClientConfig ? window.supabaseClient.createClient(config.supabaseClientUrl, config.supabaseClientAnonKey) : null;
 
       let sessionUser = null;
       let studies = [];
@@ -300,25 +301,25 @@ student support=Support"></textarea>
       document.getElementById('render-sankey-button').addEventListener('click', renderCombinedCharts);
 
       async function signIn() {
-        if (!supabase) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
+        if (!supabaseClient) return setStatus('auth-status', 'Configure supabaseClient-config.js first.', 'error');
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) return setStatus('auth-status', error.message, 'error');
         setStatus('auth-status', 'Signed in.', 'success');
       }
 
       async function signUp() {
-        if (!supabase) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
+        if (!supabaseClient) return setStatus('auth-status', 'Configure supabaseClient-config.js first.', 'error');
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabaseClient.auth.signUp({ email, password });
         if (error) return setStatus('auth-status', error.message, 'error');
         setStatus('auth-status', 'Account created. Check your email if confirmation is enabled.', 'success');
       }
 
       async function signOut() {
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
       }
 
       async function createStudy() {
@@ -334,7 +335,7 @@ student support=Support"></textarea>
           p_allow_category_editing: document.getElementById('allow-edit').checked,
           p_is_randomized: document.getElementById('randomize').checked,
         };
-        const { data, error } = await supabase.rpc('create_study_with_template', payload);
+        const { data, error } = await supabaseClient.rpc('create_study_with_template', payload);
         if (error) return setStatus('study-setup-status', error.message, 'error');
         setStatus('study-setup-status', 'Study created.', 'success');
         await loadStudies();
@@ -343,7 +344,7 @@ student support=Support"></textarea>
       }
 
       async function joinStudy() {
-        const { data, error } = await supabase.rpc('link_admin_to_study', {
+        const { data, error } = await supabaseClient.rpc('link_admin_to_study', {
           p_study_id: document.getElementById('join-study-id').value.trim(),
           p_study_key: document.getElementById('join-study-key').value.trim(),
         });
@@ -355,7 +356,7 @@ student support=Support"></textarea>
       }
 
       async function loadStudies() {
-        const { data, error } = await supabase.from('admin_studies').select('*').order('study_name');
+        const { data, error } = await supabaseClient.from('admin_studies').select('*').order('study_name');
         if (error) return setStatus('study-setup-status', error.message, 'error');
         studies = data || [];
         renderStudyList();
@@ -379,9 +380,9 @@ student support=Support"></textarea>
         selectedStudy = study;
         renderStudyList();
         const [{ data: templateData, error: templateError }, { data: adminData, error: adminError }, { data: directoryData, error: directoryError }] = await Promise.all([
-          supabase.from('sort_templates').select('*').eq('study_id', studyUuid).eq('is_active', true).order('created_at', { ascending: false }).limit(1),
-          supabase.from('study_admin_directory').select('*').eq('study_id', studyUuid).order('email'),
-          supabase.from('participant_submissions_admin').select('*').eq('study_id', studyUuid).order('submitted_at', { ascending: false })
+          supabaseClient.from('sort_templates').select('*').eq('study_id', studyUuid).eq('is_active', true).order('created_at', { ascending: false }).limit(1),
+          supabaseClient.from('study_admin_directory').select('*').eq('study_id', studyUuid).order('email'),
+          supabaseClient.from('participant_submissions_admin').select('*').eq('study_id', studyUuid).order('submitted_at', { ascending: false })
         ]);
         if (templateError || adminError || directoryError) {
           console.error(templateError || adminError || directoryError);
@@ -428,9 +429,9 @@ student support=Support"></textarea>
           is_active: true,
           created_by: sessionUser.id,
         };
-        const { error: deactivateError } = await supabase.from('sort_templates').update({ is_active: false }).eq('study_id', selectedStudy.id).eq('is_active', true);
+        const { error: deactivateError } = await supabaseClient.from('sort_templates').update({ is_active: false }).eq('study_id', selectedStudy.id).eq('is_active', true);
         if (deactivateError) return setStatus('template-status', deactivateError.message, 'error');
-        const { error } = await supabase.from('sort_templates').insert(payload);
+        const { error } = await supabaseClient.from('sort_templates').insert(payload);
         if (error) return setStatus('template-status', error.message, 'error');
         setStatus('template-status', 'Template saved. New participant sessions will use it.', 'success');
         await selectStudy(selectedStudy.id);
@@ -567,13 +568,13 @@ student support=Support"></textarea>
       }
 
       async function boot() {
-        if (!supabase) {
-          setStatus('auth-status', 'Configure supabase-config.js before using admin features.', 'error');
+        if (!supabaseClient) {
+          setStatus('auth-status', 'Configure supabaseClient-config.js before using admin features.', 'error');
           return;
         }
-        const { data } = await supabase.auth.getSession();
+        const { data } = await supabaseClient.auth.getSession();
         await handleAuthChange(data.session);
-        supabase.auth.onAuthStateChange(async (_event, session) => {
+        supabaseClient.auth.onAuthStateChange(async (_event, session) => {
           await handleAuthChange(session);
         });
       }

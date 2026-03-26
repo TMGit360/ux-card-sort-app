@@ -153,11 +153,11 @@
       </div>
     </template>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabaseClient/supabaseClient-js@2"></script>
     <script src="muuri-0.9.5.min.js"></script>
     <script src="pako-2.0.4.min.js"></script>
     <script src="common-scripts.js"></script>
-    <script src="supabase-config.js"></script>
+    <script src="supabaseClient-config.js"></script>
     <script>
       const {
         settingsDefaults,
@@ -170,9 +170,9 @@
         debounce,
       } = window.CardSortCommon;
 
-      const config = window.CARD_SORT_SUPABASE_CONFIG || {};
-      const hasSupabaseConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && !config.supabaseUrl.includes('YOUR_PROJECT_ID'));
-      const supabase = hasSupabaseConfig ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+      const config = window.CARD_SORT_supabaseClient_CONFIG || {};
+      const hassupabaseClientConfig = Boolean(config.supabaseClientUrl && config.supabaseClientAnonKey && !config.supabaseClientUrl.includes('YOUR_PROJECT_ID'));
+      const supabaseClientClient = hassupabaseClientConfig ? window.supabaseClient.createClient(config.supabaseClientUrl, config.supabaseClientAnonKey) : null;
       const statusEl = document.getElementById('status');
       const studyHeading = document.getElementById('study-heading');
       const buttonCreateCategory = document.querySelector('.btn-create-category');
@@ -339,14 +339,14 @@
       }
 
       async function submitResult() {
-        if (!supabase || !session) {
-          setStatus('Supabase session not available.', 'error');
+        if (!supabaseClient || !session) {
+          setStatus('supabaseClient session not available.', 'error');
           return;
         }
         try {
           setStatus('Submitting result…');
           const resultJson = getCleanResult();
-          const { error } = await supabase.rpc('submit_card_sort', {
+          const { error } = await supabaseClient.rpc('submit_card_sort', {
             p_public_token: session.public_token,
             p_participant_id: session.participant_id,
             p_template_id: session.template_id,
