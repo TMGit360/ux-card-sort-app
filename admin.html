@@ -72,7 +72,6 @@
         .shell, .subgrid, .row { grid-template-columns: 1fr; }
       }
     </style>
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   </head>
   <body>
     <div class="page">
@@ -235,9 +234,9 @@ student support=Support"></textarea>
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabaseClient/supabaseClient-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="common-scripts.js"></script>
-    <script src="supabaseClient-config.js"></script>
+    <script src="supabase-config.js"></script>
     <script src="https://www.gstatic.com/charts/loader.js"></script>
     <script>
       google.charts.load('current', { packages: ['sankey'] });
@@ -250,9 +249,16 @@ student support=Support"></textarea>
         escapeHtml: escapeText,
       } = window.CardSortCommon;
 
-      const config = window.CARD_SORT_supabaseClient_CONFIG || {};
-      const hassupabaseClientConfig = Boolean(config.supabaseClientUrl && config.supabaseClientAnonKey && !config.supabaseClientUrl.includes('YOUR_PROJECT_ID'));
-      const supabaseClientClient = hassupabaseClientConfig ? window.supabaseClient.createClient(config.supabaseClientUrl, config.supabaseClientAnonKey) : null;
+      const config = window.CARD_SORT_SUPABASE_CONFIG || {};
+      const hasSupabaseConfig = Boolean(
+        config.supabaseUrl &&
+        config.supabaseAnonKey &&
+        !config.supabaseUrl.includes('YOUR_PROJECT_ID')
+      );
+
+      const supabaseClient = hasSupabaseConfig
+        ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey)
+        : null;
 
       let sessionUser = null;
       let studies = [];
@@ -282,6 +288,7 @@ student support=Support"></textarea>
         document.getElementById('create-study-box').classList.remove('hidden');
         document.getElementById('join-study-box').classList.add('hidden');
       });
+
       document.getElementById('show-join-study').addEventListener('click', () => {
         document.getElementById('join-study-box').classList.remove('hidden');
         document.getElementById('create-study-box').classList.add('hidden');
@@ -301,7 +308,7 @@ student support=Support"></textarea>
       document.getElementById('render-sankey-button').addEventListener('click', renderCombinedCharts);
 
       async function signIn() {
-        if (!supabaseClient) return setStatus('auth-status', 'Configure supabaseClient-config.js first.', 'error');
+        if (!supabaseClient) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
@@ -310,7 +317,7 @@ student support=Support"></textarea>
       }
 
       async function signUp() {
-        if (!supabaseClient) return setStatus('auth-status', 'Configure supabaseClient-config.js first.', 'error');
+        if (!supabaseClient) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
         const { error } = await supabaseClient.auth.signUp({ email, password });
@@ -319,10 +326,13 @@ student support=Support"></textarea>
       }
 
       async function signOut() {
+        if (!supabaseClient) return;
         await supabaseClient.auth.signOut();
       }
 
       async function createStudy() {
+        if (!supabaseClient) return setStatus('study-setup-status', 'Configure supabase-config.js first.', 'error');
+
         const cards = splitLines(document.getElementById('new-cards').value);
         const categories = splitLines(document.getElementById('new-categories').value);
         const payload = {
@@ -344,6 +354,8 @@ student support=Support"></textarea>
       }
 
       async function joinStudy() {
+        if (!supabaseClient) return setStatus('study-setup-status', 'Configure supabase-config.js first.', 'error');
+
         const { data, error } = await supabaseClient.rpc('link_admin_to_study', {
           p_study_id: document.getElementById('join-study-id').value.trim(),
           p_study_key: document.getElementById('join-study-key').value.trim(),
@@ -356,7 +368,13 @@ student support=Support"></textarea>
       }
 
       async function loadStudies() {
-        const { data, error } = await supabaseClient.from('admin_studies').select('*').order('study_name');
+        if (!supabaseClient) return setStatus('study-setup-status', 'Configure supabase-config.js first.', 'error');
+
+        const { data, error } = await supabaseClient
+          .from('admin_studies')
+          .select('*')
+          .order('study_name');
+
         if (error) return setStatus('study-setup-status', error.message, 'error');
         studies = data || [];
         renderStudyList();
@@ -365,6 +383,7 @@ student support=Support"></textarea>
       function renderStudyList() {
         const container = document.getElementById('study-list');
         container.innerHTML = '';
+
         for (const study of studies) {
           const div = document.createElement('div');
           div.className = 'study-card' + (selectedStudy && selectedStudy.id === study.id ? ' active' : '');
@@ -375,23 +394,48 @@ student support=Support"></textarea>
       }
 
       async function selectStudy(studyUuid) {
+        if (!supabaseClient) return;
+
         const study = studies.find((item) => item.id === studyUuid);
         if (!study) return;
+
         selectedStudy = study;
         renderStudyList();
-        const [{ data: templateData, error: templateError }, { data: adminData, error: adminError }, { data: directoryData, error: directoryError }] = await Promise.all([
-          supabaseClient.from('sort_templates').select('*').eq('study_id', studyUuid).eq('is_active', true).order('created_at', { ascending: false }).limit(1),
-          supabaseClient.from('study_admin_directory').select('*').eq('study_id', studyUuid).order('email'),
-          supabaseClient.from('participant_submissions_admin').select('*').eq('study_id', studyUuid).order('submitted_at', { ascending: false })
+
+        const [
+          { data: templateData, error: templateError },
+          { data: adminData, error: adminError },
+          { data: directoryData, error: directoryError }
+        ] = await Promise.all([
+          supabaseClient
+            .from('sort_templates')
+            .select('*')
+            .eq('study_id', studyUuid)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1),
+          supabaseClient
+            .from('study_admin_directory')
+            .select('*')
+            .eq('study_id', studyUuid)
+            .order('email'),
+          supabaseClient
+            .from('participant_submissions_admin')
+            .select('*')
+            .eq('study_id', studyUuid)
+            .order('submitted_at', { ascending: false })
         ]);
+
         if (templateError || adminError || directoryError) {
           console.error(templateError || adminError || directoryError);
           return;
         }
+
         selectedTemplate = (templateData || [])[0] || null;
         selectedStudyAdmins = adminData || [];
         participantDirectory = directoryData || [];
         selectedSubmissionIds = new Set(participantDirectory.map((row) => row.submission_id));
+
         renderSelectedStudy();
         renderDirectory();
         renderCombinedCharts();
@@ -399,15 +443,22 @@ student support=Support"></textarea>
 
       function renderSelectedStudy() {
         if (!selectedStudy) return;
+
         selectedStudyPanel.classList.remove('hidden');
         directoryPanel.classList.remove('hidden');
         individualPanel.classList.remove('hidden');
         combinedPanel.classList.remove('hidden');
+
         document.getElementById('selected-study-title').textContent = selectedStudy.study_name;
         document.getElementById('selected-study-subtitle').textContent = `Study ID: ${selectedStudy.study_id}`;
+
         const participantLink = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '/') }index.html?token=${selectedStudy.public_token}`;
         document.getElementById('participant-link').value = participantLink;
-        document.getElementById('study-admins').innerHTML = selectedStudyAdmins.map((admin) => `<span class="chip">${escapeText(admin.email)}</span>`).join('');
+
+        document.getElementById('study-admins').innerHTML = selectedStudyAdmins
+          .map((admin) => `<span class="chip">${escapeText(admin.email)}</span>`)
+          .join('');
+
         if (selectedTemplate) {
           document.getElementById('edit-template-name').value = selectedTemplate.template_name || '';
           document.getElementById('edit-cards').value = (selectedTemplate.cards || []).join('\n');
@@ -418,7 +469,9 @@ student support=Support"></textarea>
       }
 
       async function saveTemplate() {
+        if (!supabaseClient) return setStatus('template-status', 'Configure supabase-config.js first.', 'error');
         if (!selectedStudy) return;
+
         const payload = {
           study_id: selectedStudy.id,
           template_name: document.getElementById('edit-template-name').value.trim(),
@@ -429,10 +482,18 @@ student support=Support"></textarea>
           is_active: true,
           created_by: sessionUser.id,
         };
-        const { error: deactivateError } = await supabaseClient.from('sort_templates').update({ is_active: false }).eq('study_id', selectedStudy.id).eq('is_active', true);
+
+        const { error: deactivateError } = await supabaseClient
+          .from('sort_templates')
+          .update({ is_active: false })
+          .eq('study_id', selectedStudy.id)
+          .eq('is_active', true);
+
         if (deactivateError) return setStatus('template-status', deactivateError.message, 'error');
+
         const { error } = await supabaseClient.from('sort_templates').insert(payload);
         if (error) return setStatus('template-status', error.message, 'error');
+
         setStatus('template-status', 'Template saved. New participant sessions will use it.', 'success');
         await selectStudy(selectedStudy.id);
       }
@@ -440,7 +501,9 @@ student support=Support"></textarea>
       function getVisibleDirectoryRows() {
         const search = document.getElementById('participant-search').value.trim().toLowerCase();
         const mode = document.getElementById('submission-filter').value;
+
         let rows = [...participantDirectory];
+
         if (mode === 'latest') {
           const seen = new Set();
           rows = rows.filter((row) => {
@@ -449,19 +512,25 @@ student support=Support"></textarea>
             return true;
           });
         }
+
         if (search) {
           rows = rows.filter((row) => {
-            const haystack = [row.user_id, row.first_name, row.last_name, row.participant_name].join(' ').toLowerCase();
+            const haystack = [row.user_id, row.first_name, row.last_name, row.participant_name]
+              .join(' ')
+              .toLowerCase();
             return haystack.includes(search);
           });
         }
+
         return rows;
       }
 
       function renderDirectory() {
         const body = document.getElementById('directory-body');
         body.innerHTML = '';
+
         const rows = getVisibleDirectoryRows();
+
         for (const row of rows) {
           const tr = document.createElement('tr');
           const checked = selectedSubmissionIds.has(row.submission_id) ? 'checked' : '';
@@ -475,27 +544,41 @@ student support=Support"></textarea>
           `;
           body.appendChild(tr);
         }
+
         body.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
           checkbox.addEventListener('change', (event) => {
             const id = event.target.getAttribute('data-submission-id');
-            if (event.target.checked) selectedSubmissionIds.add(id); else selectedSubmissionIds.delete(id);
+            if (event.target.checked) {
+              selectedSubmissionIds.add(id);
+            } else {
+              selectedSubmissionIds.delete(id);
+            }
             updateSelectionSummary();
           });
         });
+
         body.querySelectorAll('.open-result').forEach((button) => {
           button.addEventListener('click', () => renderIndividualResult(button.getAttribute('data-submission-id')));
         });
+
         updateSelectionSummary();
-        if (rows[0]) renderIndividualResult(rows[0].submission_id);
+
+        if (rows[0]) {
+          renderIndividualResult(rows[0].submission_id);
+        } else {
+          document.getElementById('individual-result').innerHTML = '<p class="muted">No submission selected.</p>';
+        }
       }
 
       function renderIndividualResult(submissionId) {
         const target = document.getElementById('individual-result');
         const row = participantDirectory.find((item) => item.submission_id === submissionId);
+
         if (!row) {
           target.innerHTML = '<p class="muted">No submission selected.</p>';
           return;
         }
+
         const result = row.result_json || {};
         const categoryHtml = Object.entries(result).map(([categoryName, cards]) => `
           <div class="category-box">
@@ -503,6 +586,7 @@ student support=Support"></textarea>
             <ul>${(cards || []).map((card) => `<li>${escapeText(card)}</li>`).join('')}</ul>
           </div>
         `).join('');
+
         target.innerHTML = `
           <div class="result-card">
             <strong>${escapeText(row.participant_name)}</strong><br />
@@ -518,35 +602,49 @@ student support=Support"></textarea>
 
       function updateSelectionSummary() {
         const selectedRows = getSelectedSubmissionRows();
-        document.getElementById('selection-summary').textContent = `${selectedRows.length} submission(s) selected for combined analysis.`;
+        document.getElementById('selection-summary').textContent =
+          `${selectedRows.length} submission(s) selected for combined analysis.`;
       }
 
       function renderCombinedCharts() {
         const selectedRows = getSelectedSubmissionRows();
         const mergeMap = parseMergeMap(document.getElementById('merge-map').value);
+
         google.charts.setOnLoadCallback(() => {
-          drawSankey('card-category-chart', buildCardSankeyRows(selectedRows, mergeMap), 'No data for card-to-category Sankey.');
-          drawSankey('category-merge-chart', buildMergedSankeyRows(selectedRows, mergeMap), 'No data for category-merge Sankey.');
+          drawSankey(
+            'card-category-chart',
+            buildCardSankeyRows(selectedRows, mergeMap),
+            'No data for card-to-category Sankey.'
+          );
+          drawSankey(
+            'category-merge-chart',
+            buildMergedSankeyRows(selectedRows, mergeMap),
+            'No data for category-merge Sankey.'
+          );
         });
       }
 
       function drawSankey(containerId, rows, emptyMessage) {
         const container = document.getElementById(containerId);
+
         if (!rows.length) {
           container.innerHTML = '<p class="muted">' + emptyMessage + '</p>';
           return;
         }
+
         const dataTable = new google.visualization.DataTable();
         dataTable.addColumn('string', 'From');
         dataTable.addColumn('string', 'To');
         dataTable.addColumn('number', 'Weight');
         dataTable.addRows(rows);
+
         const chart = new google.visualization.Sankey(container);
         chart.draw(dataTable, { width: '100%', height: 420 });
       }
 
       async function handleAuthChange(session) {
         sessionUser = session?.user || null;
+
         if (!sessionUser) {
           authPanel.classList.remove('hidden');
           sessionPanel.classList.add('hidden');
@@ -556,24 +654,42 @@ student support=Support"></textarea>
           directoryPanel.classList.add('hidden');
           individualPanel.classList.add('hidden');
           combinedPanel.classList.add('hidden');
+          selectedStudy = null;
+          selectedTemplate = null;
+          selectedStudyAdmins = [];
+          participantDirectory = [];
+          selectedSubmissionIds = new Set();
           return;
         }
+
         authPanel.classList.add('hidden');
         sessionPanel.classList.remove('hidden');
         studySetupPanel.classList.remove('hidden');
         studyListPanel.classList.remove('hidden');
         document.getElementById('session-email').textContent = sessionUser.email;
+
         await loadStudies();
-        if (studies[0] && !selectedStudy) await selectStudy(studies[0].id);
+
+        if (studies.length > 0) {
+          const studyIdToLoad = selectedStudy?.id || studies[0].id;
+          await selectStudy(studyIdToLoad);
+        }
       }
 
       async function boot() {
         if (!supabaseClient) {
-          setStatus('auth-status', 'Configure supabaseClient-config.js before using admin features.', 'error');
+          setStatus('auth-status', 'Configure supabase-config.js before using admin features.', 'error');
           return;
         }
-        const { data } = await supabaseClient.auth.getSession();
+
+        const { data, error } = await supabaseClient.auth.getSession();
+        if (error) {
+          setStatus('auth-status', error.message, 'error');
+          return;
+        }
+
         await handleAuthChange(data.session);
+
         supabaseClient.auth.onAuthStateChange(async (_event, session) => {
           await handleAuthChange(session);
         });
