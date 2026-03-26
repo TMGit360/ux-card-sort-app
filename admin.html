@@ -88,6 +88,7 @@
               <button id="sign-in-button" type="button">Sign in</button>
               <button id="sign-up-button" type="button" class="secondary">Create account</button>
             </div>
+            <div class="tiny">Already created your account? Use <strong>Sign in</strong>. Use <strong>Create account</strong> only once for a new admin email.</div>
             <div id="auth-status" class="status"></div>
           </section>
 
@@ -296,6 +297,9 @@ student support=Support"></textarea>
 
       document.getElementById('sign-in-button').addEventListener('click', signIn);
       document.getElementById('sign-up-button').addEventListener('click', signUp);
+      document.getElementById('auth-password').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') signIn();
+      });
       document.getElementById('sign-out-button').addEventListener('click', signOut);
       document.getElementById('create-study-button').addEventListener('click', createStudy);
       document.getElementById('join-study-button').addEventListener('click', joinStudy);
@@ -311,6 +315,8 @@ student support=Support"></textarea>
         if (!supabaseClient) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
+        if (!email || !password) return setStatus('auth-status', 'Enter your admin email and password, then click Sign in.', 'error');
+        setStatus('auth-status', 'Signing in...', '');
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) return setStatus('auth-status', error.message, 'error');
         setStatus('auth-status', 'Signed in.', 'success');
@@ -320,9 +326,19 @@ student support=Support"></textarea>
         if (!supabaseClient) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
-        const { error } = await supabaseClient.auth.signUp({ email, password });
+        if (!email || !password) return setStatus('auth-status', 'Enter your admin email and password before creating an account.', 'error');
+        setStatus('auth-status', 'Creating account...', '');
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
         if (error) return setStatus('auth-status', error.message, 'error');
-        setStatus('auth-status', 'Account created. Check your email if confirmation is enabled.', 'success');
+
+        if (data?.session) {
+          setStatus('auth-status', 'Account created and signed in.', 'success');
+          await handleAuthChange(data.session);
+          return;
+        }
+
+        setStatus('auth-status', 'Account created. Check your email for the confirmation link, then return here and click Sign in.', 'success');
+        document.getElementById('sign-in-button').focus();
       }
 
       async function signOut() {
