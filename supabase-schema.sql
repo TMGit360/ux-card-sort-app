@@ -1,5 +1,23 @@
 create extension if not exists pgcrypto;
 
+-- Clean up old views that may conflict with renamed columns or prior schemas
+DROP VIEW IF EXISTS public.participant_submissions CASCADE;
+DROP VIEW IF EXISTS public.participant_submissions_admin CASCADE;
+DROP VIEW IF EXISTS public.study_admin_directory CASCADE;
+DROP VIEW IF EXISTS public.admin_studies CASCADE;
+
+-- Clean up old policies so this script can be re-run safely
+DROP POLICY IF EXISTS "admins view their profile" ON public.admin_profiles;
+DROP POLICY IF EXISTS "admins upsert their profile" ON public.admin_profiles;
+DROP POLICY IF EXISTS "admins update their profile" ON public.admin_profiles;
+DROP POLICY IF EXISTS "study admins view studies" ON public.studies;
+DROP POLICY IF EXISTS "study admins view study_admins" ON public.study_admins;
+DROP POLICY IF EXISTS "study admins view templates" ON public.sort_templates;
+DROP POLICY IF EXISTS "study admins insert templates" ON public.sort_templates;
+DROP POLICY IF EXISTS "study admins update templates" ON public.sort_templates;
+DROP POLICY IF EXISTS "study admins view participants" ON public.participants;
+DROP POLICY IF EXISTS "study admins view submissions" ON public.submissions;
+
 create table if not exists public.admin_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email text not null unique,
@@ -307,7 +325,7 @@ begin
 end;
 $$;
 
-create or replace view public.admin_studies with (security_invoker = true) as
+create view public.admin_studies with (security_invoker = true) as
 select
   s.id,
   s.study_id,
@@ -322,7 +340,7 @@ select
 from public.studies s
 where public.is_study_admin(s.id);
 
-create or replace view public.study_admin_directory with (security_invoker = true) as
+create view public.study_admin_directory with (security_invoker = true) as
 select
   sa.study_id,
   ap.user_id,
@@ -333,7 +351,7 @@ from public.study_admins sa
 join public.admin_profiles ap on ap.user_id = sa.admin_user_id
 where public.is_study_admin(sa.study_id);
 
-create or replace view public.participant_submissions_admin with (security_invoker = true) as
+create view public.participant_submissions_admin with (security_invoker = true) as
 with submission_counts as (
   select participant_id, count(*)::int as submission_count
   from public.submissions
