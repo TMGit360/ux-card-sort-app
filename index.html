@@ -155,6 +155,20 @@
       const publicToken = params.get('token');
       let studyContext = null;
 
+      function getSessionStorageKey(token) {
+        return token ? 'cardSortSession:' + token : 'cardSortSession';
+      }
+
+      function persistSession(session) {
+        if (!session) return;
+        const serialized = JSON.stringify(session);
+        const storageKey = getSessionStorageKey(session.public_token || publicToken);
+        sessionStorage.setItem(storageKey, serialized);
+        localStorage.setItem(storageKey, serialized);
+        sessionStorage.setItem('cardSortSession', serialized);
+        localStorage.setItem('cardSortSession', serialized);
+      }
+
       document.getElementById('admin-link-button').addEventListener('click', () => {
         window.location.href = 'admin.html';
       });
@@ -199,8 +213,7 @@
           });
           if (error) throw error;
           const session = Array.isArray(data) ? data[0] : data;
-          sessionStorage.setItem('cardSortSession', JSON.stringify(session));
-          localStorage.setItem('cardSortSession', JSON.stringify(session));
+          persistSession(session);
           window.location.href = 'card-sort.html?token=' + encodeURIComponent(publicToken);
         } catch (error) {
           participantStatus.textContent = error.message || 'Unable to start this study.';
@@ -209,7 +222,8 @@
       });
 
       function getStoredSession() {
-        const rawSession = sessionStorage.getItem('cardSortSession') || localStorage.getItem('cardSortSession');
+        const scopedKey = getSessionStorageKey(publicToken);
+        const rawSession = sessionStorage.getItem(scopedKey) || localStorage.getItem(scopedKey) || sessionStorage.getItem('cardSortSession') || localStorage.getItem('cardSortSession');
         if (!rawSession) return null;
         try {
           return JSON.parse(rawSession);

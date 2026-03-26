@@ -253,8 +253,49 @@
       const cardGrids = [];
       const cardImageRegex = /(https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp))/i;
       let createStarterCategories = false;
+      let boardReady = false;
+
+      function setToolbarEnabled(enabled) {
+        buttonCreateCategory.disabled = !enabled;
+        buttonSubmitResult.disabled = !enabled;
+        buttonExportResult.disabled = !enabled;
+      }
+
+      function getSessionStorageKey(token) {
+        return token ? 'cardSortSession:' + token : 'cardSortSession';
+      }
+
+      function persistSession(nextSession) {
+        if (!nextSession) return;
+        const serialized = JSON.stringify(nextSession);
+        const scopedKey = getSessionStorageKey(nextSession.public_token || publicToken);
+        sessionStorage.setItem(scopedKey, serialized);
+        localStorage.setItem(scopedKey, serialized);
+        sessionStorage.setItem('cardSortSession', serialized);
+        localStorage.setItem('cardSortSession', serialized);
+      }
+
+      async function ensureMuuriLoaded() {
+        if (window.Muuri) return;
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/muuri@0.9.5/dist/muuri.min.js';
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Unable to load the drag-and-drop library Muuri.'));
+          document.head.appendChild(script);
+        });
+        if (!window.Muuri) {
+          throw new Error('The drag-and-drop library Muuri is unavailable on this deployment.');
+        }
+      }
+
+      setToolbarEnabled(false);
 
       buttonCreateCategory.addEventListener('click', () => {
+        if (!boardReady) {
+          setStatus('The study board has not loaded yet.', 'error');
+          return;
+        }
         if (settings.allowCategoryEditing === false) {
           setStatus('This study uses fixed categories, so new categories cannot be added.', 'error');
           return;
@@ -289,6 +330,9 @@
       }
 
       function clearStoredSession() {
+        const scopedKey = getSessionStorageKey(publicToken);
+        sessionStorage.removeItem(scopedKey);
+        localStorage.removeItem(scopedKey);
         sessionStorage.removeItem('cardSortSession');
         localStorage.removeItem('cardSortSession');
       }
@@ -307,7 +351,8 @@
       }
 
       function getStoredSession() {
-        const rawSession = sessionStorage.getItem('cardSortSession') || localStorage.getItem('cardSortSession');
+        const scopedKey = getSessionStorageKey(publicToken);
+        const rawSession = sessionStorage.getItem(scopedKey) || localStorage.getItem(scopedKey) || sessionStorage.getItem('cardSortSession') || localStorage.getItem('cardSortSession');
         if (!rawSession) return null;
 
         try {
@@ -349,8 +394,7 @@
         const nextSession = Array.isArray(data) ? data[0] : data;
         nextSession.cards = normalizeArray(nextSession.cards);
         nextSession.categories = normalizeArray(nextSession.categories);
-        sessionStorage.setItem('cardSortSession', JSON.stringify(nextSession));
-        localStorage.setItem('cardSortSession', JSON.stringify(nextSession));
+        persistSession(nextSession);
         return nextSession;
       }
 
@@ -392,6 +436,9 @@
       });
 
       function initGrids() {
+        if (!window.Muuri) {
+          throw new Error('The drag-and-drop board library did not load.');
+        }
         categoriesGrid = new Muuri(categoriesGridElement, {
           dragEnabled: true,
           dragHandle: '.category-drag-handle',
@@ -581,6 +628,8 @@
       }
 
       function resetBoard() {
+        boardReady = false;
+        setToolbarEnabled(false);
         categoriesGridElement.innerHTML = '';
         uncategorizedGridElement.innerHTML = '';
         cardGrids.length = 0;
@@ -590,10 +639,10 @@
       }
 
       async function bootFromSession() {
+        await ensureMuuriLoaded();
         session.cards = normalizeArray(session.cards);
         session.categories = normalizeArray(session.categories);
-        sessionStorage.setItem('cardSortSession', JSON.stringify(session));
-        localStorage.setItem('cardSortSession', JSON.stringify(session));
+        persistSession(session);
         studyHeading.textContent = session.study_name + ' · ' + session.participant_name;
         resetBoard();
         buildDataFromTemplate(session);
@@ -612,10 +661,14 @@
           createCategory();
           createCategory();
         }
+
+        boardReady = true;
+        setToolbarEnabled(true);
       }
 
       async function boot() {
         const legacyHash = window.location.hash.slice(1);
+        await ensureMuuriLoaded();
 
         if (legacyHash) {
           const legacyData = await window.CardSortCommon.loadFromString(legacyHash);
@@ -651,14 +704,15 @@
             createCategory();
           }
 
+          boardReady = true;
+          setToolbarEnabled(true);
           setStatus('Drag cards into categories, then submit when finished.');
           return;
         }
 
         if (!publicToken) {
           setStatus('This page expects a study link with a token.', 'error');
-          buttonSubmitResult.disabled = true;
-          buttonCreateCategory.disabled = true;
+          setToolbarEnabled(false);
           return;
         }
 
@@ -666,6 +720,8 @@
         if (session) {
           hideStartGate();
           await bootFromSession();
+          boardReady = true;
+          setToolbarEnabled(true);
           setStatus('Drag cards into categories, then submit when finished.');
           return;
         }
@@ -690,12 +746,19 @@
           setStatus('Enter your name to begin.');
         } catch (error) {
           setStatus(error.message || 'Unable to load this study.', 'error');
-          buttonSubmitResult.disabled = true;
-          buttonCreateCategory.disabled = true;
+          setToolbarEnabled(false);
         }
       }
 
-      boot();
+      window.addEventListener('error', (event) => {
+        const message = event?.error?.message || event?.message || 'An unexpected error occurred while loading the study.';
+        setStatus(message, 'error');
+      });
+
+      boot().catch((error) => {
+        setStatus(error.message || 'Unable to load this study.', 'error');
+        setToolbarEnabled(false);
+      });
     </script>
   </body>
 </html>
