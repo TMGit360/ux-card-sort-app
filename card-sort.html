@@ -343,7 +343,7 @@
         const rawSession = sessionStorage.getItem(scopedKey) || localStorage.getItem(scopedKey) || sessionStorage.getItem('cardSortSession') || localStorage.getItem('cardSortSession');
         if (!rawSession) return null;
         try {
-          const parsed = JSON.parse(rawSession);
+          let parsed = JSON.parse(rawSession);
           if (publicToken && parsed.public_token !== publicToken) return null;
           parsed = hydrateSessionTemplate(parsed, null);
           return parsed;
