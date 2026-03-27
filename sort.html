@@ -401,6 +401,34 @@
       transform: scale(1.14);
     }
 
+    /* ── Zoom controls ───────────────────────────────────────── */
+    #zoom-controls {
+      position: fixed;
+      bottom: 28px;
+      right: 100px;
+      display: none;
+      gap: 6px;
+      z-index: 600;
+    }
+    #zoom-controls button {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #f1f5f9;
+      border: 2px solid #e2e8f0;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #475569;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    #zoom-controls button:hover { background: #e2e8f0; border-color: #cbd5e1; }
+    #zoom-controls button:disabled { opacity: 0.38; cursor: not-allowed; }
+
     /* ── Free-floating card on canvas ────────────────────────── */
     .card.card-floating {
       position: absolute;
@@ -612,6 +640,12 @@
   <!-- Trash bin — appears during drag to delete cards or categories -->
   <div id="trash-bin">🗑</div>
 
+  <!-- Zoom controls — fixed lower-right, visible while sorting -->
+  <div id="zoom-controls">
+    <button id="btn-zoom-out" title="Zoom out">−</button>
+    <button id="btn-zoom-in"  title="Zoom in">+</button>
+  </div>
+
   <!-- Click-to-move tray -->
   <div id="move-tray">
     <div class="tray-label">Move selected card to:</div>
@@ -653,6 +687,12 @@
     let catDragStartY  = 0;
     let isDraggingCat  = false;
 
+    /* ─── Zoom state ─────────────────────────────────────────── */
+    let zoomLevel = 1.0;
+    const ZOOM_MIN = 0.5, ZOOM_MAX = 1.5, ZOOM_STEP = 0.1;
+    // Convert a screen-space delta (from getBoundingClientRect) to CSS layout units
+    function fromScreen(v) { return v / zoomLevel; }
+
     /* ─── DOM ─────────────────────────────────────────────────── */
     const elLoading      = document.getElementById('loading-view');
     const elError        = document.getElementById('error-view');
@@ -680,6 +720,26 @@
     // Placeholder shows where a dragged card will snap
     const elPlaceholder = document.createElement('div');
     elPlaceholder.className = 'drop-placeholder';
+
+    /* ─── Zoom helpers ──────────────────────────────────────── */
+    const elBoardBody    = document.querySelector('.board-body');
+    const elZoomControls = document.getElementById('zoom-controls');
+    const elBtnZoomIn    = document.getElementById('btn-zoom-in');
+    const elBtnZoomOut   = document.getElementById('btn-zoom-out');
+
+    function applyZoom() {
+      elBoardBody.style.transform       = 'scale(' + zoomLevel + ')';
+      elBoardBody.style.transformOrigin = '0 0';
+      elBtnZoomIn.disabled  = zoomLevel >= ZOOM_MAX;
+      elBtnZoomOut.disabled = zoomLevel <= ZOOM_MIN;
+    }
+
+    elBtnZoomIn.addEventListener('click', () => {
+      if (zoomLevel < ZOOM_MAX) { zoomLevel = Math.round((zoomLevel + ZOOM_STEP) * 10) / 10; applyZoom(); }
+    });
+    elBtnZoomOut.addEventListener('click', () => {
+      if (zoomLevel > ZOOM_MIN) { zoomLevel = Math.round((zoomLevel - ZOOM_STEP) * 10) / 10; applyZoom(); }
+    });
 
     /* ─── Trash helpers ─────────────────────────────────────── */
     function isOverTrash(clientX, clientY) {
@@ -832,11 +892,11 @@
 
     /* ─── Place a card freely inside a category dropzone ───────── */
     function positionCardInDropzone(card, dz, clientX, clientY) {
-      const r    = dz.getBoundingClientRect();
-      const cardW = dragCardWidth || card.offsetWidth || 120;
+      const r     = dz.getBoundingClientRect();
+      const cardW = fromScreen(dragCardWidth) || card.offsetWidth || 120;
       const cardH = card.offsetHeight || 62;
-      const left  = Math.max(0, Math.min(clientX - dragOffsetX - r.left, dz.clientWidth  - cardW));
-      const top   = Math.max(0, Math.min(clientY - dragOffsetY - r.top,  Math.max(0, dz.clientHeight - cardH)));
+      const left  = Math.max(0, Math.min(fromScreen(clientX - dragOffsetX - r.left), dz.clientWidth  - cardW));
+      const top   = Math.max(0, Math.min(fromScreen(clientY - dragOffsetY - r.top),  Math.max(0, dz.clientHeight - cardH)));
       card.classList.remove('card-floating');
       card.style.position = 'absolute';
       card.style.left     = left + 'px';
@@ -1010,10 +1070,10 @@
 
         dragHoverDz = targetZone;
         const dzRect      = targetZone.getBoundingClientRect();
-        const ghostTop    = Math.max(0, e.clientY - dragOffsetY - dzRect.top);
-        const ghostLeft   = Math.max(0, e.clientX - dragOffsetX - dzRect.left);
-        const ghostBottom = ghostTop  + dragCardHeight;
-        const ghostRight  = ghostLeft + dragCardWidth;
+        const ghostTop    = Math.max(0, fromScreen(e.clientY - dragOffsetY - dzRect.top));
+        const ghostLeft   = Math.max(0, fromScreen(e.clientX - dragOffsetX - dzRect.left));
+        const ghostBottom = ghostTop  + fromScreen(dragCardHeight);
+        const ghostRight  = ghostLeft + fromScreen(dragCardWidth);
 
         let maxExistingBottom = 0, maxExistingRight = 0;
         targetZone.querySelectorAll('.card:not(.is-dragging)').forEach(c => {
@@ -1075,13 +1135,13 @@
           } else if (under2.some(el => el === elCatsArea)) {
             // Float freely on the canvas
             const cr   = elCatsArea.getBoundingClientRect();
-            const left = Math.max(0, Math.min(e.clientX - dragOffsetX - cr.left, cr.width  - dragCardWidth));
-            const top  = Math.max(0, Math.min(e.clientY - dragOffsetY - cr.top,  cr.height - card.offsetHeight));
+            const left = Math.max(0, Math.min(fromScreen(e.clientX - dragOffsetX - cr.left), fromScreen(cr.width)  - fromScreen(dragCardWidth)));
+            const top  = Math.max(0, Math.min(fromScreen(e.clientY - dragOffsetY - cr.top),  fromScreen(cr.height) - card.offsetHeight));
             card.classList.add('card-floating');
             card.style.position = 'absolute';
             card.style.left     = left + 'px';
             card.style.top      = top  + 'px';
-            card.style.width    = dragCardWidth + 'px';
+            card.style.width    = fromScreen(dragCardWidth) + 'px';
             elCatsArea.appendChild(card);
             afterMove();
           }
@@ -1150,10 +1210,10 @@
       updateTrashOver(e.clientX, e.clientY);
 
       const canvas  = elCatsArea.getBoundingClientRect();
-      const maxLeft = canvas.width  - dragCatCol.offsetWidth;
-      const maxTop  = canvas.height - dragCatCol.offsetHeight;
-      const newLeft = Math.max(0, Math.min(e.clientX - catDragOffsetX - canvas.left, maxLeft));
-      const newTop  = Math.max(0, Math.min(e.clientY - catDragOffsetY - canvas.top,  maxTop));
+      const maxLeft = fromScreen(canvas.width)  - dragCatCol.offsetWidth;
+      const maxTop  = fromScreen(canvas.height) - dragCatCol.offsetHeight;
+      const newLeft = Math.max(0, Math.min(fromScreen(e.clientX - catDragOffsetX - canvas.left), maxLeft));
+      const newTop  = Math.max(0, Math.min(fromScreen(e.clientY - catDragOffsetY - canvas.top),  maxTop));
       dragCatCol.style.left = newLeft + 'px';
       dragCatCol.style.top  = newTop  + 'px';
     }, { passive: true });
@@ -1261,6 +1321,8 @@
       updateProgress();
       refreshAllHints();
       show(elBoard);
+      elZoomControls.style.display = 'flex';
+      applyZoom();
       setStatus('Drag a card onto a category, or tap a card then choose a destination.');
     }
 
