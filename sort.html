@@ -305,14 +305,9 @@
     }
     .cat-dropzone {
       flex: 1;
-      overflow-y: auto;
-      padding: 8px;
-      display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
-      align-content: flex-start;
-      gap: 8px;
-      min-height: 80px;
+      position: relative;
+      overflow: hidden;
+      min-height: 160px;
     }
     .drop-hint {
       font-size: 12px;
@@ -321,6 +316,14 @@
       padding: 16px 8px;
       user-select: none;
       pointer-events: none;
+    }
+    /* Centered hint inside freeform category dropzone */
+    .cat-dropzone > .drop-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      white-space: nowrap;
     }
 
     /* ── Card tile ───────────────────────────────────────────── */
@@ -810,6 +813,22 @@
       card.style.width    = '';
     }
 
+    /* ─── Place a card freely inside a category dropzone ───────── */
+    function positionCardInDropzone(card, dz, clientX, clientY) {
+      const r    = dz.getBoundingClientRect();
+      const cardW = dragCardWidth || card.offsetWidth || 120;
+      const cardH = card.offsetHeight || 62;
+      const left  = Math.max(0, Math.min(clientX - dragOffsetX - r.left, dz.clientWidth  - cardW));
+      const top   = Math.max(0, Math.min(clientY - dragOffsetY - r.top,  Math.max(0, dz.clientHeight - cardH)));
+      card.classList.remove('card-floating');
+      card.style.position = 'absolute';
+      card.style.left     = left + 'px';
+      card.style.top      = top  + 'px';
+      card.style.width    = cardW + 'px';
+      dz.appendChild(card);
+      afterMove();
+    }
+
     /* ─── Move a card into a zone (used by click-to-move tray) ─ */
     function moveCard(card, zone) {
       clearCardFloat(card);
@@ -951,18 +970,18 @@
       updateTrashOver(e.clientX, e.clientY);
 
       if (isOverTrash(e.clientX, e.clientY)) {
-        // Hovering trash — don't show a drop zone or placeholder
         elPlaceholder.remove();
+      } else if (targetZone === elUnsorted) {
+        // Unsorted zone — show snap placeholder
+        elUnsorted.classList.add('drop-highlight');
+        const insertBefore = getInsertPoint(elUnsorted, e.clientX, e.clientY);
+        if (insertBefore) elUnsorted.insertBefore(elPlaceholder, insertBefore);
+        else              elUnsorted.appendChild(elPlaceholder);
       } else if (targetZone) {
+        // Category dropzone — just highlight, no snap placeholder
         const colEl = targetZone.closest('.cat-col');
-        (colEl || targetZone).classList.add('drop-highlight');
-
-        const insertBefore = getInsertPoint(targetZone, e.clientX, e.clientY);
-        if (insertBefore) {
-          targetZone.insertBefore(elPlaceholder, insertBefore);
-        } else {
-          targetZone.appendChild(elPlaceholder);
-        }
+        if (colEl) colEl.classList.add('drop-highlight');
+        elPlaceholder.remove();
       } else {
         elPlaceholder.remove();
       }
@@ -986,23 +1005,32 @@
 
       if (wasGenuineDrag) {
         if (isOverTrash(e.clientX, e.clientY)) {
+          // Delete the card
           elPlaceholder.remove();
           card.remove();
           afterMove();
-        } else if (elPlaceholder.parentNode) {
-          // Snap card to the placeholder's position in a zone
+        } else if (elPlaceholder.parentNode === elUnsorted) {
+          // Snap into unsorted list at placeholder position
           clearCardFloat(card);
-          elPlaceholder.parentNode.insertBefore(card, elPlaceholder);
+          elUnsorted.insertBefore(card, elPlaceholder);
           elPlaceholder.remove();
           afterMove();
         } else {
-          // Check if dropped on the freeform canvas (outside any zone)
+          elPlaceholder.remove();
+          // Re-check drop target (ghost is already hidden by this point)
           const under2 = document.elementsFromPoint(e.clientX, e.clientY);
-          const onCanvas = under2.some(el => el === elCatsArea);
-          if (onCanvas) {
-            const cr    = elCatsArea.getBoundingClientRect();
-            const left  = Math.max(0, Math.min(e.clientX - dragOffsetX - cr.left, cr.width  - dragCardWidth));
-            const top   = Math.max(0, Math.min(e.clientY - dragOffsetY - cr.top,  cr.height - card.offsetHeight));
+          const catDz   = under2.find(el => el.classList.contains('cat-dropzone'));
+          const catCol2 = under2.find(el => el.classList.contains('cat-col'));
+          const targetDz = catDz || (catCol2 ? catCol2.querySelector('.cat-dropzone') : null);
+
+          if (targetDz) {
+            // Free-position inside category — no snap
+            positionCardInDropzone(card, targetDz, e.clientX, e.clientY);
+          } else if (under2.some(el => el === elCatsArea)) {
+            // Float freely on the canvas
+            const cr   = elCatsArea.getBoundingClientRect();
+            const left = Math.max(0, Math.min(e.clientX - dragOffsetX - cr.left, cr.width  - dragCardWidth));
+            const top  = Math.max(0, Math.min(e.clientY - dragOffsetY - cr.top,  cr.height - card.offsetHeight));
             card.classList.add('card-floating');
             card.style.position = 'absolute';
             card.style.left     = left + 'px';
@@ -1011,9 +1039,8 @@
             elCatsArea.appendChild(card);
             afterMove();
           }
-          // else: dropped in a gap — card stays in place
+          // else: released outside any valid target — card stays put
         }
-        // (no-op fall-through: card stays in its current zone)
 
       } else {
         // It was a tap — toggle selection
