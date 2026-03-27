@@ -256,7 +256,6 @@
       border-radius: 14px;
       display: flex;
       flex-direction: column;
-      max-height: calc(100vh - 115px);
       transition: border-color 0.1s, background 0.1s, box-shadow 0.1s;
     }
     .cat-col.cat-dragging {
@@ -787,10 +786,22 @@
     }
 
     /* ─── After any card move ───────────────────────────────── */
+    /* ─── Expand a dropzone to contain all its absolute cards ── */
+    function expandDropzone(dz) {
+      const cards = dz.querySelectorAll('.card');
+      let maxBottom = 0;
+      cards.forEach(card => {
+        const b = card.offsetTop + card.offsetHeight;
+        if (b > maxBottom) maxBottom = b;
+      });
+      dz.style.minHeight = Math.max(160, maxBottom + 16) + 'px';
+    }
+
     function afterMove() {
       updateProgress();
       refreshAllHints();
       refreshAllCatCounts();
+      document.querySelectorAll('.cat-dropzone').forEach(expandDropzone);
     }
 
     /* ─── Find insertion point in a zone at pointer position ── */
@@ -826,6 +837,7 @@
       card.style.top      = top  + 'px';
       card.style.width    = cardW + 'px';
       dz.appendChild(card);
+      expandDropzone(dz);   // grow border before afterMove recomputes everything
       afterMove();
     }
 
