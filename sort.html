@@ -641,6 +641,8 @@
     let dragStartX    = 0;
     let dragStartY    = 0;
     let dragCardWidth = 0;
+    let dragCardHeight = 0;
+    let dragHoverDz   = null;   // dropzone currently being previewed
     let isDragging    = false;  // true once movement threshold is exceeded
 
     /* ─── Category drag state ────────────────────────────────── */
@@ -951,6 +953,7 @@
 
         const r = dragCard.getBoundingClientRect();
         dragCardWidth        = r.width;
+        dragCardHeight       = r.height;
         elGhost.textContent  = dragCard.dataset.text;
         elGhost.style.width  = r.width + 'px';
         elGhost.style.minHeight = r.height + 'px';
@@ -981,6 +984,12 @@
 
       updateTrashOver(e.clientX, e.clientY);
 
+      // If we've left the previously hovered dropzone, revert it
+      if (dragHoverDz && dragHoverDz !== targetZone) {
+        expandDropzone(dragHoverDz);
+        dragHoverDz = null;
+      }
+
       if (isOverTrash(e.clientX, e.clientY)) {
         elPlaceholder.remove();
       } else if (targetZone === elUnsorted) {
@@ -990,10 +999,24 @@
         if (insertBefore) elUnsorted.insertBefore(elPlaceholder, insertBefore);
         else              elUnsorted.appendChild(elPlaceholder);
       } else if (targetZone) {
-        // Category dropzone — just highlight, no snap placeholder
+        // Category dropzone — highlight and expand live to follow the ghost
         const colEl = targetZone.closest('.cat-col');
         if (colEl) colEl.classList.add('drop-highlight');
         elPlaceholder.remove();
+
+        dragHoverDz = targetZone;
+        const dzRect     = targetZone.getBoundingClientRect();
+        const ghostTop   = Math.max(0, e.clientY - dragOffsetY - dzRect.top);
+        const ghostBottom = ghostTop + dragCardHeight;
+
+        let maxExisting = 0;
+        targetZone.querySelectorAll('.card:not(.is-dragging)').forEach(c => {
+          const b = c.offsetTop + c.offsetHeight;
+          if (b > maxExisting) maxExisting = b;
+        });
+
+        targetZone.style.minHeight =
+          Math.max(160, Math.max(maxExisting, ghostBottom) + 16) + 'px';
       } else {
         elPlaceholder.remove();
       }
@@ -1014,6 +1037,7 @@
       document.body.style.userSelect = '';
       document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
       hideTrash();
+      dragHoverDz = null;   // preview expansion is finalised by drop logic below
 
       if (wasGenuineDrag) {
         if (isOverTrash(e.clientX, e.clientY)) {
@@ -1076,6 +1100,7 @@
       document.body.style.userSelect = '';
       document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
       hideTrash();
+      if (dragHoverDz) { expandDropzone(dragHoverDz); dragHoverDz = null; }
       dragCard   = null;
       isDragging = false;
     });
