@@ -175,7 +175,10 @@
           </section>
 
           <section class="panel hidden" id="directory-panel">
-            <h2>Participant directory</h2>
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+              <h2 style="margin:0;">Participant directory</h2>
+              <button id="download-csv-button" class="ghost inline" type="button" style="width:auto;">⬇ Download CSV</button>
+            </div>
             <div class="row">
               <div>
                 <label for="participant-search">Find by first name, last name, or user ID</label>
@@ -215,19 +218,29 @@
             <h2>Combined analysis</h2>
             <p class="muted">Choose specific submissions below or leave everything selected to aggregate the full study.</p>
             <div id="selection-summary" class="status"></div>
-            <label for="merge-map">Category merge map</label>
-            <textarea id="merge-map" placeholder="Example:
+
+            <div style="margin-top: 18px;">
+              <h3 style="margin-bottom:4px;">Cards sorted per category</h3>
+              <p class="tiny" style="margin:0 0 10px;">Total card placements per category across all selected submissions.</p>
+              <div id="bar-chart" style="min-height:360px;"></div>
+            </div>
+
+            <div style="margin-top: 28px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+              <h3 style="margin-bottom:4px;">Sankey diagrams</h3>
+              <label for="merge-map">Category merge map</label>
+              <textarea id="merge-map" placeholder="Example:
 faculty support=Support
 student support=Support"></textarea>
-            <button id="render-sankey-button" type="button">Render Sankey diagrams</button>
-            <div class="subgrid" style="margin-top: 18px;">
-              <div>
-                <h3>Card → category</h3>
-                <div id="card-category-chart" class="chart"></div>
-              </div>
-              <div>
-                <h3>Original category → merged category</h3>
-                <div id="category-merge-chart" class="chart"></div>
+              <button id="render-sankey-button" type="button">Render Sankey diagrams</button>
+              <div class="subgrid" style="margin-top: 18px;">
+                <div>
+                  <h3>Card → category</h3>
+                  <div id="card-category-chart" class="chart"></div>
+                </div>
+                <div>
+                  <h3>Original category → merged category</h3>
+                  <div id="category-merge-chart" class="chart"></div>
+                </div>
               </div>
             </div>
           </section>
@@ -240,7 +253,7 @@ student support=Support"></textarea>
     <script src="supabase-config.js"></script>
     <script src="https://www.gstatic.com/charts/loader.js"></script>
     <script>
-      google.charts.load('current', { packages: ['sankey'] });
+      google.charts.load('current', { packages: ['sankey', 'corechart'] });
 
       const {
         splitToArray: splitLines,
@@ -310,6 +323,7 @@ student support=Support"></textarea>
       document.getElementById('participant-search').addEventListener('input', renderDirectory);
       document.getElementById('submission-filter').addEventListener('change', renderDirectory);
       document.getElementById('render-sankey-button').addEventListener('click', renderCombinedCharts);
+      document.getElementById('download-csv-button').addEventListener('click', downloadCSV);
 
       async function signIn() {
         if (!supabaseClient) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
@@ -648,11 +662,108 @@ student support=Support"></textarea>
           `${selectedRows.length} submission(s) selected for combined analysis.`;
       }
 
+      /* ── Result parser (shared) ──────────────────────────── */
+      function parseResult(val) {
+        if (val && typeof val === 'object') return val;
+        if (typeof val === 'string') {
+          try { return JSON.parse(val); } catch (_) {}
+        }
+        return {};
+      }
+
+      /* ── Bar chart ────────────────────────────────────────── */
+      function renderBarChart(rows) {
+        const container = document.getElementById('bar-chart');
+        if (!rows.length) {
+          container.innerHTML = '<p class="muted">No submissions selected.</p>';
+          return;
+        }
+
+        // Tally card placements per category across all selected submissions
+        const counts = {};
+        for (const row of rows) {
+          const result = parseResult(row.result_json);
+          for (const [cat, cards] of Object.entries(result)) {
+            counts[cat] = (counts[cat] || 0) + (cards || []).length;
+          }
+        }
+
+        const pairs = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        if (!pairs.length) {
+          container.innerHTML = '<p class="muted">No category data found in the selected submissions.</p>';
+          return;
+        }
+
+        const dataTable = new google.visualization.DataTable();
+        dataTable.addColumn('string', 'Category');
+        dataTable.addColumn('number', 'Card placements');
+        dataTable.addRows(pairs);
+
+        const chart = new google.visualization.ColumnChart(container);
+        chart.draw(dataTable, {
+          width: '100%',
+          height: 360,
+          legend: { position: 'none' },
+          hAxis: { title: 'Category', slantedText: true, slantedTextAngle: 30 },
+          vAxis: { title: 'Cards sorted in', minValue: 0, format: '0' },
+          colors: ['#2563eb'],
+          bar: { groupWidth: '60%' },
+          tooltip: { isHtml: false },
+        });
+      }
+
+      /* ── CSV download ─────────────────────────────────────── */
+      function csvCell(value) {
+        const s = String(value ?? '');
+        return (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r'))
+          ? '"' + s.replace(/"/g, '""') + '"'
+          : s;
+      }
+
+      function downloadCSV() {
+        const rows = getSelectedSubmissionRows();
+        if (!rows.length) {
+          alert('No submissions are selected. Select at least one row in the participant directory.');
+          return;
+        }
+
+        const lines = [
+          ['participant_name', 'user_id', 'submission_id', 'submitted_at', 'card', 'category']
+            .map(csvCell).join(',')
+        ];
+
+        for (const row of rows) {
+          const result = parseResult(row.result_json);
+          for (const [cat, cards] of Object.entries(result)) {
+            for (const card of (cards || [])) {
+              lines.push([
+                row.participant_name,
+                row.user_id,
+                row.submission_id,
+                row.submitted_at ? new Date(row.submitted_at).toISOString() : '',
+                card,
+                cat,
+              ].map(csvCell).join(','));
+            }
+          }
+        }
+
+        // UTF-8 BOM ensures Excel opens with correct encoding; \r\n for Windows compatibility
+        const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'card-sort-' + (selectedStudy?.study_id || 'export') + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
       function renderCombinedCharts() {
         const selectedRows = getSelectedSubmissionRows();
         const mergeMap = parseMergeMap(document.getElementById('merge-map').value);
 
         google.charts.setOnLoadCallback(() => {
+          renderBarChart(selectedRows);
           drawSankey(
             'card-category-chart',
             buildCardSankeyRows(selectedRows, mergeMap),

@@ -185,6 +185,50 @@
       font-weight: 700;
       padding: 1px 7px;
     }
+    #btn-add-card {
+      background: none;
+      border: 0;
+      padding: 2px 4px;
+      font-size: 16px;
+      line-height: 1;
+      color: #94a3b8;
+      cursor: pointer;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    #btn-add-card:hover { color: #2563eb; background: #eff6ff; }
+    #add-card-form {
+      flex-shrink: 0;
+      padding: 8px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      gap: 6px;
+    }
+    #add-card-form.hidden { display: none !important; }
+    #add-card-input {
+      flex: 1;
+      min-width: 0;
+      padding: 7px 10px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 13px;
+      background: #fff;
+    }
+    #add-card-input:focus { outline: none; border-color: #2563eb; }
+    #add-card-form .ac-btn {
+      padding: 7px 10px;
+      border: 0;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #add-card-form .ac-confirm { background: #2563eb; color: #fff; }
+    #add-card-form .ac-confirm:hover { background: #1d4ed8; }
+    #add-card-form .ac-cancel  { background: #f1f5f9; color: #64748b; }
+    #add-card-form .ac-cancel:hover  { background: #e2e8f0; }
     #unsorted-zone {
       flex: 1;
       overflow-y: auto;
@@ -435,7 +479,12 @@
 
     <div class="board-body">
       <div class="unsorted-panel">
-        <h2>Cards to sort <span id="unsorted-badge">0</span></h2>
+        <h2>Cards to sort <span id="unsorted-badge">0</span><button id="btn-add-card" title="Add a card">＋</button></h2>
+        <div id="add-card-form" class="hidden">
+          <input id="add-card-input" type="text" placeholder="Card text…" maxlength="120" />
+          <button type="button" class="ac-btn ac-confirm" id="add-card-confirm">Add</button>
+          <button type="button" class="ac-btn ac-cancel"  id="add-card-cancel">✕</button>
+        </div>
         <div id="unsorted-zone"></div>
       </div>
       <div class="cats-scroll" id="cats-area"></div>
@@ -896,6 +945,41 @@
         elBtnSubmit.disabled = false;
       }
     }
+
+    /* ─── Add-card form ─────────────────────────────────────── */
+    const elBtnAddCard    = document.getElementById('btn-add-card');
+    const elAddCardForm   = document.getElementById('add-card-form');
+    const elAddCardInput  = document.getElementById('add-card-input');
+
+    function addCustomCard() {
+      const text = elAddCardInput.value.trim();
+      if (!text) return;
+      elUnsorted.appendChild(makeCard(text));
+      elAddCardInput.value = '';
+      elAddCardInput.focus();
+      updateProgress();
+      refreshAllHints();
+    }
+
+    function closeAddCardForm() {
+      elAddCardForm.classList.add('hidden');
+      elAddCardInput.value = '';
+    }
+
+    elBtnAddCard.addEventListener('click', () => {
+      elAddCardForm.classList.toggle('hidden');
+      if (!elAddCardForm.classList.contains('hidden')) {
+        elAddCardInput.focus();
+      }
+    });
+
+    document.getElementById('add-card-confirm').addEventListener('click', addCustomCard);
+    document.getElementById('add-card-cancel').addEventListener('click', closeAddCardForm);
+
+    elAddCardInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); addCustomCard(); }
+      if (e.key === 'Escape') { closeAddCardForm(); }
+    });
 
     /* ─── Button wiring ─────────────────────────────────────── */
     elBtnAddCat.addEventListener('click', () => {
