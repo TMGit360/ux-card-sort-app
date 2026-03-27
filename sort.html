@@ -239,20 +239,17 @@
     }
     #unsorted-zone.drop-highlight { background: #eff6ff; }
 
-    /* Categories scroll area */
+    /* Categories freeform canvas */
     .cats-scroll {
+      position: relative;
       flex: 1;
-      overflow-x: auto;
-      overflow-y: hidden;
-      padding: 14px;
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
+      overflow: hidden;
+      min-height: 200px;
     }
 
-    /* Category column */
+    /* Category column — freely positioned */
     .cat-col {
-      flex-shrink: 0;
+      position: absolute;
       width: 190px;
       background: #fff;
       border: 2px solid #dbeafe;
@@ -261,6 +258,13 @@
       flex-direction: column;
       max-height: calc(100vh - 115px);
       transition: border-color 0.1s, background 0.1s, box-shadow 0.1s;
+    }
+    .cat-col.cat-dragging {
+      cursor: grabbing !important;
+      z-index: 100;
+      box-shadow: 0 16px 48px rgba(30, 64, 175, 0.20);
+      opacity: 0.95;
+      transition: none;
     }
     .cat-col.drop-highlight {
       border-color: #2563eb;
@@ -274,6 +278,8 @@
       flex-shrink: 0;
       padding: 10px 10px 8px;
       border-bottom: 1px solid #dbeafe;
+      cursor: grab;
+      user-select: none;
     }
     .cat-name {
       display: block;
@@ -409,6 +415,43 @@
     .tray-btn.is-unsorted { background: #1e3a8a; }
     .tray-btn.is-unsorted:hover { background: #1d4ed8; }
 
+    /* ── Consent ─────────────────────────────────────────────── */
+    .consent-box {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.11);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 480px;
+    }
+    .consent-box h1 { margin: 0 0 18px; font-size: 1.35rem; line-height: 1.3; }
+    .consent-box p {
+      margin: 0 0 28px;
+      color: #374151;
+      font-size: 15px;
+      line-height: 1.7;
+      background: #f8fafc;
+      border-left: 4px solid #2563eb;
+      border-radius: 0 8px 8px 0;
+      padding: 14px 16px;
+    }
+    .consent-actions { display: flex; gap: 12px; }
+    .consent-actions button {
+      flex: 1;
+      padding: 13px;
+      border: 0;
+      border-radius: 10px;
+      font: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #btn-consent-agree { background: #2563eb; color: #fff; }
+    #btn-consent-agree:hover { background: #1d4ed8; }
+    #btn-consent-exit  { background: #f1f5f9; color: #475569; }
+    #btn-consent-exit:hover  { background: #e2e8f0; }
+
     /* ── Thank-you ───────────────────────────────────────────── */
     .thanks-box {
       background: #fff;
@@ -432,7 +475,7 @@
         border-bottom: 1px solid #e2e8f0;
       }
       #unsorted-zone { flex-direction: row; flex-wrap: wrap; }
-      .cats-scroll { overflow-x: auto; overflow-y: visible; flex-shrink: 0; }
+      .cats-scroll { min-height: 55vh; flex: 1; }
       .cat-col { max-height: none; }
     }
   </style>
@@ -446,6 +489,17 @@
   <div id="error-view" class="page-center hidden">
     <strong id="error-text"></strong>
     <p>Check the link or contact your study administrator.</p>
+  </div>
+
+  <div id="consent-view" class="page-center hidden">
+    <div class="consent-box">
+      <h1>Before you begin</h1>
+      <p>This card sort asks you to organize items into categories based on the instructions provided. The facilitator will explain the activity and provide written instructions. Your name and responses will be collected and reviewed by the study administrator. Participation is voluntary.</p>
+      <div class="consent-actions">
+        <button id="btn-consent-agree">I Agree</button>
+        <button id="btn-consent-exit">Exit</button>
+      </div>
+    </div>
   </div>
 
   <div id="gate-view" class="page-center hidden">
@@ -523,7 +577,7 @@
     let SESSION      = null;   // populated after start_participant_session
     let selectedCard = null;   // card element selected via click/tap
 
-    /* ─── Drag state ─────────────────────────────────────────── */
+    /* ─── Card drag state ────────────────────────────────────── */
     let dragCard     = null;
     let dragOffsetX  = 0;
     let dragOffsetY  = 0;
@@ -531,11 +585,20 @@
     let dragStartY   = 0;
     let isDragging   = false;  // true once movement threshold is exceeded
 
+    /* ─── Category drag state ────────────────────────────────── */
+    let dragCatCol     = null;
+    let catDragOffsetX = 0;
+    let catDragOffsetY = 0;
+    let catDragStartX  = 0;
+    let catDragStartY  = 0;
+    let isDraggingCat  = false;
+
     /* ─── DOM ─────────────────────────────────────────────────── */
-    const elLoading   = document.getElementById('loading-view');
-    const elError     = document.getElementById('error-view');
-    const elErrorText = document.getElementById('error-text');
-    const elGateView  = document.getElementById('gate-view');
+    const elLoading      = document.getElementById('loading-view');
+    const elError        = document.getElementById('error-view');
+    const elErrorText    = document.getElementById('error-text');
+    const elConsentView  = document.getElementById('consent-view');
+    const elGateView     = document.getElementById('gate-view');
     const elGateStudy = document.getElementById('gate-study-name');
     const elGateBtn   = document.getElementById('gate-btn');
     const elGateMsg   = document.getElementById('gate-msg');
@@ -554,7 +617,7 @@
     const elTray      = document.getElementById('move-tray');
 
     /* ─── View helpers ──────────────────────────────────────── */
-    const ALL_VIEWS = [elLoading, elError, elGateView, elBoard, elThanks];
+    const ALL_VIEWS = [elLoading, elError, elConsentView, elGateView, elBoard, elThanks];
 
     function show(el) {
       ALL_VIEWS.forEach(v => v.classList.add('hidden'));
@@ -690,6 +753,18 @@
       dz.className = 'cat-dropzone';
 
       col.append(hdr, dz);
+
+      // Position absolutely within the freeform canvas
+      const n = elCatsArea.querySelectorAll('.cat-col').length;
+      const colStride = 204; // 190px width + 14px gap
+      const canvasW   = elCatsArea.clientWidth  || 600;
+      const canvasH   = elCatsArea.clientHeight || 400;
+      const perRow    = Math.max(1, Math.floor((canvasW - 14) / colStride));
+      const initLeft  = 14 + (n % perRow) * colStride;
+      const initTop   = 14 + Math.floor(n / perRow) * Math.min(260, canvasH / 2);
+      col.style.left  = Math.min(initLeft, canvasW - 204) + 'px';
+      col.style.top   = initTop + 'px';
+
       elCatsArea.appendChild(col);
       refreshHint(dz);
 
@@ -827,6 +902,60 @@
       document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
       dragCard   = null;
       isDragging = false;
+    });
+
+    /* ─── Category drag (freely reposition columns) ─────────── */
+    document.addEventListener('pointerdown', e => {
+      if (e.button > 0) return;
+      if (dragCard) return;                          // card drag in progress
+      if (e.target.closest('.cat-name')) return;     // let name input work
+      const hdr = e.target.closest('.cat-hdr');
+      if (!hdr) return;
+      const col = hdr.closest('.cat-col');
+      if (!col) return;
+
+      hdr.setPointerCapture(e.pointerId);
+      dragCatCol    = col;
+      isDraggingCat = false;
+      catDragStartX = e.clientX;
+      catDragStartY = e.clientY;
+      const r       = col.getBoundingClientRect();
+      catDragOffsetX = e.clientX - r.left;
+      catDragOffsetY = e.clientY - r.top;
+    }, { passive: true });
+
+    document.addEventListener('pointermove', e => {
+      if (!dragCatCol) return;
+
+      const moved = Math.hypot(e.clientX - catDragStartX, e.clientY - catDragStartY);
+      if (!isDraggingCat) {
+        if (moved < 5) return;
+        isDraggingCat = true;
+        dragCatCol.classList.add('cat-dragging');
+        clearSelection();
+      }
+
+      const canvas  = elCatsArea.getBoundingClientRect();
+      const maxLeft = canvas.width  - dragCatCol.offsetWidth;
+      const maxTop  = canvas.height - dragCatCol.offsetHeight;
+      const newLeft = Math.max(0, Math.min(e.clientX - catDragOffsetX - canvas.left, maxLeft));
+      const newTop  = Math.max(0, Math.min(e.clientY - catDragOffsetY - canvas.top,  maxTop));
+      dragCatCol.style.left = newLeft + 'px';
+      dragCatCol.style.top  = newTop  + 'px';
+    }, { passive: true });
+
+    document.addEventListener('pointerup', e => {
+      if (!dragCatCol) return;
+      dragCatCol.classList.remove('cat-dragging');
+      dragCatCol    = null;
+      isDraggingCat = false;
+    });
+
+    document.addEventListener('pointercancel', () => {
+      if (!dragCatCol) return;
+      dragCatCol.classList.remove('cat-dragging');
+      dragCatCol    = null;
+      isDraggingCat = false;
     });
 
     /* ─── Click-to-move tray ────────────────────────────────── */
@@ -999,7 +1128,7 @@
         return;
       }
 
-      // Reload from stored session (handles page refresh)
+      // Reload from stored session (handles page refresh — skip consent)
       const stored = loadStoredSession();
       if (stored) {
         stored.cards      = toArray(stored.cards);
@@ -1008,6 +1137,12 @@
         return;
       }
 
+      // Show consent screen first
+      show(elConsentView);
+    }
+
+    async function proceedAfterConsent() {
+      show(elLoading);
       // Fetch study name for the gate
       try {
         const { data, error } = await sb.rpc('get_public_study_context', { p_public_token: TOKEN });
@@ -1024,6 +1159,11 @@
         showError(err.message || 'Unable to load this study.');
       }
     }
+
+    document.getElementById('btn-consent-agree').addEventListener('click', proceedAfterConsent);
+    document.getElementById('btn-consent-exit').addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
 
     /* ─── Gate form submit ──────────────────────────────────── */
     document.getElementById('gate-form').addEventListener('submit', async e => {
