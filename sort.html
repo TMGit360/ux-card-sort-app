@@ -276,7 +276,8 @@
     }
     .cat-hdr {
       flex-shrink: 0;
-      padding: 10px 10px 8px;
+      position: relative;
+      padding: 10px 28px 8px 10px; /* right pad leaves room for × button */
       border-bottom: 1px solid #dbeafe;
       cursor: grab;
       user-select: none;
@@ -308,7 +309,9 @@
       overflow-y: auto;
       padding: 8px;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-content: flex-start;
       gap: 8px;
       min-height: 80px;
     }
@@ -324,6 +327,7 @@
     /* ── Card tile ───────────────────────────────────────────── */
     .card {
       flex-shrink: 0;
+      min-width: 72px;
       padding: 11px 13px;
       min-height: 62px;
       background: #fef9c3;
@@ -357,11 +361,41 @@
     /* ── Drop placeholder (shows insertion point during drag) ── */
     .drop-placeholder {
       flex-shrink: 0;
+      min-width: 72px;
       min-height: 62px;
       border: 2.5px dashed #93c5fd;
       border-radius: 10px;
       background: #eff6ff;
       pointer-events: none;
+    }
+
+    /* ── Category delete button ──────────────────────────────── */
+    .cat-delete-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 20px;
+      height: 20px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: background 0.12s, color 0.12s;
+    }
+    .cat-delete-btn:hover { background: #fee2e2; color: #b91c1c; }
+
+    /* ── Free-floating card on canvas ────────────────────────── */
+    .card.card-floating {
+      position: absolute;
+      box-shadow: 0 4px 16px rgba(146, 64, 14, 0.18);
+      z-index: 2;
     }
 
     /* ── Drag ghost ──────────────────────────────────────────── */
@@ -588,12 +622,13 @@
     let selectedCard = null;   // card element selected via click/tap
 
     /* ─── Card drag state ────────────────────────────────────── */
-    let dragCard     = null;
-    let dragOffsetX  = 0;
-    let dragOffsetY  = 0;
-    let dragStartX   = 0;
-    let dragStartY   = 0;
-    let isDragging   = false;  // true once movement threshold is exceeded
+    let dragCard      = null;
+    let dragOffsetX   = 0;
+    let dragOffsetY   = 0;
+    let dragStartX    = 0;
+    let dragStartY    = 0;
+    let dragCardWidth = 0;
+    let isDragging    = false;  // true once movement threshold is exceeded
 
     /* ─── Category drag state ────────────────────────────────── */
     let dragCatCol     = null;
@@ -684,8 +719,9 @@
     function updateProgress() {
       const total    = document.querySelectorAll('#board .card').length;
       const unsorted = elUnsorted.querySelectorAll('.card').length;
-      const sorted   = total - unsorted;
-      elBadge.textContent    = unsorted;
+      const floating = elCatsArea.querySelectorAll(':scope > .card').length;
+      const sorted   = total - unsorted - floating;
+      elBadge.textContent    = unsorted + floating;
       elHdrProg.textContent  = sorted + ' of ' + total + ' sorted';
     }
 
@@ -726,17 +762,28 @@
     }
 
     /* ─── Find insertion point in a zone at pointer position ── */
-    function getInsertPoint(zone, clientY) {
+    function getInsertPoint(zone, clientX, clientY) {
       const cards = [...zone.querySelectorAll('.card:not(.is-dragging)')];
       for (const card of cards) {
         const r = card.getBoundingClientRect();
-        if (clientY < r.top + r.height / 2) return card;
+        if (clientY < r.top + r.height / 2) return card;             // above row midpoint
+        if (clientY <= r.bottom && clientX < r.left + r.width / 2) return card; // same row, left of midpoint
       }
       return null; // append at end
     }
 
+    /* ─── Clear free-float styles when moving card into a zone ─ */
+    function clearCardFloat(card) {
+      card.classList.remove('card-floating');
+      card.style.position = '';
+      card.style.left     = '';
+      card.style.top      = '';
+      card.style.width    = '';
+    }
+
     /* ─── Move a card into a zone (used by click-to-move tray) ─ */
     function moveCard(card, zone) {
+      clearCardFloat(card);
       zone.appendChild(card);
       afterMove();
     }
@@ -753,7 +800,7 @@
     /* ─── Category column factory ───────────────────────────── */
     let untitledN = 0;
 
-    function makeCatCol(name, allowEdit) {
+    function makeCatCol(name, allowEdit, deletable = false) {
       const col = document.createElement('div');
       col.className = 'cat-col';
 
@@ -772,6 +819,25 @@
       countEl.textContent = '0 cards';
 
       hdr.append(nameEl, countEl);
+
+      if (deletable) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'cat-delete-btn';
+        delBtn.title = 'Delete category';
+        delBtn.textContent = '×';
+        delBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          // Return all cards in this category to the unsorted pile
+          col.querySelectorAll('.card').forEach(c => {
+            clearCardFloat(c);
+            elUnsorted.appendChild(c);
+          });
+          col.remove();
+          refreshTray();
+          afterMove();
+        });
+        hdr.appendChild(delBtn);
+      }
 
       const dz = document.createElement('div');
       dz.className = 'cat-dropzone';
@@ -842,6 +908,7 @@
         document.body.style.userSelect = 'none';
 
         const r = dragCard.getBoundingClientRect();
+        dragCardWidth        = r.width;
         elGhost.textContent  = dragCard.dataset.text;
         elGhost.style.width  = r.width + 'px';
         elGhost.style.minHeight = r.height + 'px';
@@ -874,7 +941,7 @@
         const colEl = targetZone.closest('.cat-col');
         (colEl || targetZone).classList.add('drop-highlight');
 
-        const insertBefore = getInsertPoint(targetZone, e.clientY);
+        const insertBefore = getInsertPoint(targetZone, e.clientX, e.clientY);
         if (insertBefore) {
           targetZone.insertBefore(elPlaceholder, insertBefore);
         } else {
@@ -901,13 +968,31 @@
       document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
 
       if (wasGenuineDrag) {
-        // Snap card to the placeholder's position if it landed in a valid zone
         if (elPlaceholder.parentNode) {
+          // Snap card to the placeholder's position in a zone
+          clearCardFloat(card);
           elPlaceholder.parentNode.insertBefore(card, elPlaceholder);
           elPlaceholder.remove();
           afterMove();
+        } else {
+          // Check if dropped on the freeform canvas (outside any zone)
+          const under2 = document.elementsFromPoint(e.clientX, e.clientY);
+          const onCanvas = under2.some(el => el === elCatsArea);
+          if (onCanvas) {
+            const cr    = elCatsArea.getBoundingClientRect();
+            const left  = Math.max(0, Math.min(e.clientX - dragOffsetX - cr.left, cr.width  - dragCardWidth));
+            const top   = Math.max(0, Math.min(e.clientY - dragOffsetY - cr.top,  cr.height - card.offsetHeight));
+            card.classList.add('card-floating');
+            card.style.position = 'absolute';
+            card.style.left     = left + 'px';
+            card.style.top      = top  + 'px';
+            card.style.width    = dragCardWidth + 'px';
+            elCatsArea.appendChild(card);
+            afterMove();
+          }
+          // else: dropped in a gap — card stays in place
         }
-        // Dropped outside any valid zone → card stays in place
+        // (no-op fall-through: card stays in its current zone)
 
       } else {
         // It was a tap — toggle selection
@@ -1063,8 +1148,8 @@
         cats.forEach(name => makeCatCol(name, allowEdit));
       } else if (allowEdit) {
         // No preset categories: give two blank ones to get started
-        makeCatCol('', true);
-        makeCatCol('', true);
+        makeCatCol('', true, true);
+        makeCatCol('', true, true);
       }
 
       updateProgress();
@@ -1086,6 +1171,15 @@
     /* ─── Submit ────────────────────────────────────────────── */
     async function submitSort() {
       if (!sb || !SESSION) return;
+
+      const unsortedCount = elUnsorted.querySelectorAll('.card').length;
+      const floatingCount = elCatsArea.querySelectorAll(':scope > .card').length;
+      const remaining     = unsortedCount + floatingCount;
+      if (remaining > 0) {
+        setStatus(`Please place all cards into a category before submitting. ${remaining} card${remaining === 1 ? '' : 's'} still need${remaining === 1 ? 's' : ''} a category.`, 'err');
+        return;
+      }
+
       elBtnSubmit.disabled = true;
       setStatus('Submitting…');
       try {
@@ -1143,7 +1237,7 @@
     /* ─── Button wiring ─────────────────────────────────────── */
     elBtnAddCat.addEventListener('click', () => {
       const allowEdit = SESSION?.allow_category_editing !== false;
-      makeCatCol('', allowEdit);
+      makeCatCol('', allowEdit, true);
     });
     elBtnSubmit.addEventListener('click', submitSort);
 
