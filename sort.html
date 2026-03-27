@@ -790,13 +790,17 @@
     /* ─── After any card move ───────────────────────────────── */
     /* ─── Expand a dropzone to contain all its absolute cards ── */
     function expandDropzone(dz) {
+      const col   = dz.closest('.cat-col');
       const cards = dz.querySelectorAll('.card');
-      let maxBottom = 0;
+      let maxBottom = 0, maxRight = 0;
       cards.forEach(card => {
-        const b = card.offsetTop + card.offsetHeight;
+        const b = card.offsetTop  + card.offsetHeight;
+        const r = card.offsetLeft + card.offsetWidth;
         if (b > maxBottom) maxBottom = b;
+        if (r > maxRight)  maxRight  = r;
       });
       dz.style.minHeight = Math.max(160, maxBottom + 16) + 'px';
+      if (col) col.style.minWidth = Math.max(260, maxRight + 16) + 'px';
     }
 
     function afterMove() {
@@ -1005,18 +1009,24 @@
         elPlaceholder.remove();
 
         dragHoverDz = targetZone;
-        const dzRect     = targetZone.getBoundingClientRect();
-        const ghostTop   = Math.max(0, e.clientY - dragOffsetY - dzRect.top);
-        const ghostBottom = ghostTop + dragCardHeight;
+        const dzRect      = targetZone.getBoundingClientRect();
+        const ghostTop    = Math.max(0, e.clientY - dragOffsetY - dzRect.top);
+        const ghostLeft   = Math.max(0, e.clientX - dragOffsetX - dzRect.left);
+        const ghostBottom = ghostTop  + dragCardHeight;
+        const ghostRight  = ghostLeft + dragCardWidth;
 
-        let maxExisting = 0;
+        let maxExistingBottom = 0, maxExistingRight = 0;
         targetZone.querySelectorAll('.card:not(.is-dragging)').forEach(c => {
-          const b = c.offsetTop + c.offsetHeight;
-          if (b > maxExisting) maxExisting = b;
+          const b = c.offsetTop  + c.offsetHeight;
+          const r = c.offsetLeft + c.offsetWidth;
+          if (b > maxExistingBottom) maxExistingBottom = b;
+          if (r > maxExistingRight)  maxExistingRight  = r;
         });
 
         targetZone.style.minHeight =
-          Math.max(160, Math.max(maxExisting, ghostBottom) + 16) + 'px';
+          Math.max(160, Math.max(maxExistingBottom, ghostBottom) + 16) + 'px';
+        if (colEl) colEl.style.minWidth =
+          Math.max(260, Math.max(maxExistingRight, ghostRight) + 16) + 'px';
       } else {
         elPlaceholder.remove();
       }
