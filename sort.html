@@ -250,7 +250,7 @@
     /* Category column — freely positioned */
     .cat-col {
       position: absolute;
-      width: 190px;
+      width: 260px;
       background: #fff;
       border: 2px solid #dbeafe;
       border-radius: 14px;
@@ -276,8 +276,7 @@
     }
     .cat-hdr {
       flex-shrink: 0;
-      position: relative;
-      padding: 10px 28px 8px 10px; /* right pad leaves room for × button */
+      padding: 10px 10px 8px;
       border-bottom: 1px solid #dbeafe;
       cursor: grab;
       user-select: none;
@@ -369,27 +368,36 @@
       pointer-events: none;
     }
 
-    /* ── Category delete button ──────────────────────────────── */
-    .cat-delete-btn {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 20px;
-      height: 20px;
-      border: 0;
-      border-radius: 50%;
-      background: transparent;
-      color: #94a3b8;
-      font-size: 14px;
-      line-height: 1;
-      cursor: pointer;
+    /* ── Trash bin ───────────────────────────────────────────── */
+    #trash-bin {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      background: #f1f5f9;
+      border: 2px solid #e2e8f0;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0;
-      transition: background 0.12s, color 0.12s;
+      font-size: 26px;
+      line-height: 1;
+      z-index: 600;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: opacity 0.15s, transform 0.15s, background 0.12s, border-color 0.12s;
     }
-    .cat-delete-btn:hover { background: #fee2e2; color: #b91c1c; }
+    #trash-bin.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+    #trash-bin.over {
+      background: #fee2e2;
+      border-color: #f87171;
+      transform: scale(1.14);
+    }
 
     /* ── Free-floating card on canvas ────────────────────────── */
     .card.card-floating {
@@ -599,6 +607,9 @@
   <!-- Floating ghost element for drag -->
   <div id="drag-ghost"></div>
 
+  <!-- Trash bin — appears during drag to delete cards or categories -->
+  <div id="trash-bin">🗑</div>
+
   <!-- Click-to-move tray -->
   <div id="move-tray">
     <div class="tray-label">Move selected card to:</div>
@@ -660,10 +671,28 @@
     const elBtnSubmit = document.getElementById('btn-submit');
     const elGhost     = document.getElementById('drag-ghost');
     const elTray      = document.getElementById('move-tray');
+    const elTrash     = document.getElementById('trash-bin');
 
     // Placeholder shows where a dragged card will snap
     const elPlaceholder = document.createElement('div');
     elPlaceholder.className = 'drop-placeholder';
+
+    /* ─── Trash helpers ─────────────────────────────────────── */
+    function isOverTrash(clientX, clientY) {
+      const r = elTrash.getBoundingClientRect();
+      return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+    }
+    function showTrash()  { elTrash.classList.add('visible'); }
+    function hideTrash()  { elTrash.classList.remove('visible', 'over'); }
+    function updateTrashOver(x, y) {
+      elTrash.classList.toggle('over', isOverTrash(x, y));
+    }
+    function deleteCatCol(col) {
+      col.querySelectorAll('.card').forEach(c => { clearCardFloat(c); elUnsorted.appendChild(c); });
+      col.remove();
+      refreshTray();
+      afterMove();
+    }
 
     /* ─── View helpers ──────────────────────────────────────── */
     const ALL_VIEWS = [elLoading, elError, elConsentView, elGateView, elBoard, elThanks];
@@ -800,7 +829,7 @@
     /* ─── Category column factory ───────────────────────────── */
     let untitledN = 0;
 
-    function makeCatCol(name, allowEdit, deletable = false) {
+    function makeCatCol(name, allowEdit) {
       const col = document.createElement('div');
       col.className = 'cat-col';
 
@@ -820,25 +849,6 @@
 
       hdr.append(nameEl, countEl);
 
-      if (deletable) {
-        const delBtn = document.createElement('button');
-        delBtn.className = 'cat-delete-btn';
-        delBtn.title = 'Delete category';
-        delBtn.textContent = '×';
-        delBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          // Return all cards in this category to the unsorted pile
-          col.querySelectorAll('.card').forEach(c => {
-            clearCardFloat(c);
-            elUnsorted.appendChild(c);
-          });
-          col.remove();
-          refreshTray();
-          afterMove();
-        });
-        hdr.appendChild(delBtn);
-      }
-
       const dz = document.createElement('div');
       dz.className = 'cat-dropzone';
 
@@ -846,13 +856,13 @@
 
       // Position absolutely within the freeform canvas
       const n = elCatsArea.querySelectorAll('.cat-col').length;
-      const colStride = 204; // 190px width + 14px gap
+      const colStride = 274; // 260px width + 14px gap
       const canvasW   = elCatsArea.clientWidth  || 600;
       const canvasH   = elCatsArea.clientHeight || 400;
       const perRow    = Math.max(1, Math.floor((canvasW - 14) / colStride));
       const initLeft  = 14 + (n % perRow) * colStride;
       const initTop   = 14 + Math.floor(n / perRow) * Math.min(260, canvasH / 2);
-      col.style.left  = Math.min(initLeft, canvasW - 204) + 'px';
+      col.style.left  = Math.min(initLeft, canvasW - 274) + 'px';
       col.style.top   = initTop + 'px';
 
       elCatsArea.appendChild(col);
@@ -906,6 +916,7 @@
         clearSelection();           // dismiss click-to-move tray
         document.body.style.cursor = 'grabbing';
         document.body.style.userSelect = 'none';
+        showTrash();
 
         const r = dragCard.getBoundingClientRect();
         dragCardWidth        = r.width;
@@ -937,7 +948,12 @@
         return null;
       })();
 
-      if (targetZone) {
+      updateTrashOver(e.clientX, e.clientY);
+
+      if (isOverTrash(e.clientX, e.clientY)) {
+        // Hovering trash — don't show a drop zone or placeholder
+        elPlaceholder.remove();
+      } else if (targetZone) {
         const colEl = targetZone.closest('.cat-col');
         (colEl || targetZone).classList.add('drop-highlight');
 
@@ -966,9 +982,14 @@
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
+      hideTrash();
 
       if (wasGenuineDrag) {
-        if (elPlaceholder.parentNode) {
+        if (isOverTrash(e.clientX, e.clientY)) {
+          elPlaceholder.remove();
+          card.remove();
+          afterMove();
+        } else if (elPlaceholder.parentNode) {
           // Snap card to the placeholder's position in a zone
           clearCardFloat(card);
           elPlaceholder.parentNode.insertBefore(card, elPlaceholder);
@@ -1015,6 +1036,7 @@
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
+      hideTrash();
       dragCard   = null;
       isDragging = false;
     });
@@ -1048,7 +1070,10 @@
         isDraggingCat = true;
         dragCatCol.classList.add('cat-dragging');
         clearSelection();
+        showTrash();
       }
+
+      updateTrashOver(e.clientX, e.clientY);
 
       const canvas  = elCatsArea.getBoundingClientRect();
       const maxLeft = canvas.width  - dragCatCol.offsetWidth;
@@ -1061,9 +1086,15 @@
 
     document.addEventListener('pointerup', e => {
       if (!dragCatCol) return;
+      const col = dragCatCol;
+      const wasDragging = isDraggingCat;
       dragCatCol.classList.remove('cat-dragging');
       dragCatCol    = null;
       isDraggingCat = false;
+      hideTrash();
+      if (wasDragging && isOverTrash(e.clientX, e.clientY)) {
+        deleteCatCol(col);
+      }
     });
 
     document.addEventListener('pointercancel', () => {
@@ -1071,6 +1102,7 @@
       dragCatCol.classList.remove('cat-dragging');
       dragCatCol    = null;
       isDraggingCat = false;
+      hideTrash();
     });
 
     /* ─── Click-to-move tray ────────────────────────────────── */
@@ -1148,8 +1180,8 @@
         cats.forEach(name => makeCatCol(name, allowEdit));
       } else if (allowEdit) {
         // No preset categories: give two blank ones to get started
-        makeCatCol('', true, true);
-        makeCatCol('', true, true);
+        makeCatCol('', true);
+        makeCatCol('', true);
       }
 
       updateProgress();
@@ -1237,7 +1269,7 @@
     /* ─── Button wiring ─────────────────────────────────────── */
     elBtnAddCat.addEventListener('click', () => {
       const allowEdit = SESSION?.allow_category_editing !== false;
-      makeCatCol('', allowEdit, true);
+      makeCatCol('', allowEdit);
     });
     elBtnSubmit.addEventListener('click', submitSort);
 
