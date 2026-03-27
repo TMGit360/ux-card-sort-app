@@ -354,6 +354,16 @@
     }
     .card.is-dragging { opacity: 0.25; transform: none; }
 
+    /* ── Drop placeholder (shows insertion point during drag) ── */
+    .drop-placeholder {
+      flex-shrink: 0;
+      min-height: 62px;
+      border: 2.5px dashed #93c5fd;
+      border-radius: 10px;
+      background: #eff6ff;
+      pointer-events: none;
+    }
+
     /* ── Drag ghost ──────────────────────────────────────────── */
     #drag-ghost {
       position: fixed;
@@ -616,6 +626,10 @@
     const elGhost     = document.getElementById('drag-ghost');
     const elTray      = document.getElementById('move-tray');
 
+    // Placeholder shows where a dragged card will snap
+    const elPlaceholder = document.createElement('div');
+    elPlaceholder.className = 'drop-placeholder';
+
     /* ─── View helpers ──────────────────────────────────────── */
     const ALL_VIEWS = [elLoading, elError, elConsentView, elGateView, elBoard, elThanks];
 
@@ -711,7 +725,17 @@
       refreshAllCatCounts();
     }
 
-    /* ─── Move a card into a zone ───────────────────────────── */
+    /* ─── Find insertion point in a zone at pointer position ── */
+    function getInsertPoint(zone, clientY) {
+      const cards = [...zone.querySelectorAll('.card:not(.is-dragging)')];
+      for (const card of cards) {
+        const r = card.getBoundingClientRect();
+        if (clientY < r.top + r.height / 2) return card;
+      }
+      return null; // append at end
+    }
+
+    /* ─── Move a card into a zone (used by click-to-move tray) ─ */
     function moveCard(card, zone) {
       zone.appendChild(card);
       afterMove();
@@ -830,21 +854,34 @@
       elGhost.style.left = (e.clientX - dragOffsetX) + 'px';
       elGhost.style.top  = (e.clientY - dragOffsetY) + 'px';
 
-      // Highlight drop target under pointer
+      // Find drop target and insertion point
       elGhost.style.display = 'none';
       const under = document.elementsFromPoint(e.clientX, e.clientY);
       elGhost.style.display = 'flex';
 
       document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
 
-      const catDz  = under.find(el => el.classList.contains('cat-dropzone'));
-      const catCol = under.find(el => el.classList.contains('cat-col'));
-      const onUnsorted = under.some(el => el === elUnsorted);
+      const targetZone = (() => {
+        const dz = under.find(el => el.classList.contains('cat-dropzone'));
+        if (dz) return dz;
+        const col = under.find(el => el.classList.contains('cat-col'));
+        if (col) return col.querySelector('.cat-dropzone');
+        if (under.some(el => el === elUnsorted)) return elUnsorted;
+        return null;
+      })();
 
-      if (catCol) {
-        catCol.classList.add('drop-highlight');
-      } else if (onUnsorted) {
-        elUnsorted.classList.add('drop-highlight');
+      if (targetZone) {
+        const colEl = targetZone.closest('.cat-col');
+        (colEl || targetZone).classList.add('drop-highlight');
+
+        const insertBefore = getInsertPoint(targetZone, e.clientY);
+        if (insertBefore) {
+          targetZone.insertBefore(elPlaceholder, insertBefore);
+        } else {
+          targetZone.appendChild(elPlaceholder);
+        }
+      } else {
+        elPlaceholder.remove();
       }
     }, { passive: false });
 
@@ -864,19 +901,11 @@
       document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
 
       if (wasGenuineDrag) {
-        // Find drop target
-        const under = document.elementsFromPoint(e.clientX, e.clientY);
-        const catDz  = under.find(el => el.classList.contains('cat-dropzone'));
-        const catCol = under.find(el => el.classList.contains('cat-col'));
-        const onUnsorted = under.some(el => el === elUnsorted || el.closest('#unsorted-zone'));
-
-        if (catDz) {
-          moveCard(card, catDz);
-        } else if (catCol) {
-          const dz = catCol.querySelector('.cat-dropzone');
-          if (dz) moveCard(card, dz);
-        } else if (onUnsorted) {
-          moveCard(card, elUnsorted);
+        // Snap card to the placeholder's position if it landed in a valid zone
+        if (elPlaceholder.parentNode) {
+          elPlaceholder.parentNode.insertBefore(card, elPlaceholder);
+          elPlaceholder.remove();
+          afterMove();
         }
         // Dropped outside any valid zone → card stays in place
 
@@ -897,6 +926,7 @@
       if (!dragCard) return;
       dragCard.classList.remove('is-dragging');
       elGhost.style.display = 'none';
+      elPlaceholder.remove();
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       document.querySelectorAll('.drop-highlight').forEach(el => el.classList.remove('drop-highlight'));
