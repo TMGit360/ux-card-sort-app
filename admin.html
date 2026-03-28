@@ -315,7 +315,7 @@ student support=Support"></textarea>
       const {
         splitToArray: splitLines,
         parseCategoryMergeMap: parseMergeMap,
-        categoryToMergedName,
+        categoryToMergedName: toMergedName,
         buildCardCategorySankeyRows: buildCardSankeyRows,
         buildOriginalMergedSankeyRows: buildMergedSankeyRows,
         escapeHtml: escapeText,
@@ -959,7 +959,7 @@ student support=Support"></textarea>
           const result = parseResult(row.result_json);
           const mergedGroups = {};
           for (const [cat, cards] of Object.entries(result)) {
-            const mc = categoryToMergedName(cat, mergeMap);
+            const mc = toMergedName(cat, mergeMap);
             if (!mergedGroups[mc]) mergedGroups[mc] = [];
             mergedGroups[mc].push(...(cards || []).filter(Boolean));
           }
@@ -1023,7 +1023,7 @@ student support=Support"></textarea>
           const result = parseResult(row.result_json);
           const mergedGroups = {};
           for (const [cat, cards] of Object.entries(result)) {
-            const mc = categoryToMergedName(cat, mergeMap);
+            const mc = toMergedName(cat, mergeMap);
             if (!mergedGroups[mc]) mergedGroups[mc] = [];
             mergedGroups[mc].push(...(cards || []).filter(Boolean));
           }
@@ -1093,7 +1093,7 @@ student support=Support"></textarea>
           // Group by merged category so merge-mapped categories count together
           const mergedGroups = {};
           for (const [cat, cards] of Object.entries(result)) {
-            const mc = categoryToMergedName(cat, mergeMap);
+            const mc = toMergedName(cat, mergeMap);
             if (!mergedGroups[mc]) mergedGroups[mc] = [];
             mergedGroups[mc].push(...(cards || []).filter(Boolean));
           }
