@@ -96,6 +96,11 @@
       .matrix-col-header { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
       .analysis-subsection { margin-top: 22px; border-top: 1px solid #f1f5f9; padding-top: 18px; }
       .pdf-btn-row { margin-top: 28px; border-top: 1px solid #e5e7eb; padding-top: 20px; }
+      button.danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+      button.danger:hover { background: #fecaca; }
+      .account-section { border-top: 1px solid #e5e7eb; margin-top: 14px; padding-top: 14px; }
+      #account-footer:not(.hidden) { display: flex; }
+      #delete-confirm-box:not(.hidden) { display: flex; }
     </style>
   </head>
   <body>
@@ -115,12 +120,47 @@
             </div>
             <div class="tiny">Already created your account? Use <strong>Sign in</strong>. Use <strong>Create account</strong> only once for a new admin email.</div>
             <div id="auth-status" class="status"></div>
+            <div style="text-align:right; margin-top:4px;">
+              <button id="forgot-password-button" type="button" class="ghost inline" style="width:auto; font-size:12px; padding:5px 10px;">Forgot password?</button>
+            </div>
+            <div id="forgot-password-box" class="hidden stack" style="margin-top:10px; border-top:1px solid #e5e7eb; padding-top:14px;">
+              <p class="tiny" style="margin:0 0 4px;">A reset link will be sent to the email address entered above.</p>
+              <button id="send-reset-button" type="button">Send reset link</button>
+              <div id="reset-request-status" class="status"></div>
+            </div>
+          </section>
+
+          <section id="recovery-panel" class="hidden">
+            <h2>Set new password</h2>
+            <p class="tiny">Enter and confirm your new password below.</p>
+            <label for="new-password-input">New password</label>
+            <input id="new-password-input" type="password" placeholder="At least 6 characters" />
+            <label for="confirm-password-input">Confirm password</label>
+            <input id="confirm-password-input" type="password" />
+            <button id="update-password-button" type="button">Update password</button>
+            <div id="update-password-status" class="status"></div>
           </section>
 
           <section id="session-panel" class="hidden">
             <h2>Session</h2>
             <div class="muted" id="session-email"></div>
             <button id="sign-out-button" class="ghost" type="button">Sign out</button>
+
+            <div class="account-section">
+              <button id="show-change-password-button" class="ghost" type="button">Change password</button>
+              <div id="change-password-box" class="hidden stack" style="margin-top:12px;">
+                <label for="new-password-session">New password</label>
+                <input id="new-password-session" type="password" placeholder="At least 6 characters" />
+                <label for="confirm-password-session">Confirm new password</label>
+                <input id="confirm-password-session" type="password" />
+                <div class="row">
+                  <button id="save-new-password-button" type="button">Save</button>
+                  <button id="cancel-change-password-button" class="ghost" type="button">Cancel</button>
+                </div>
+                <div id="change-password-status" class="status"></div>
+              </div>
+            </div>
+
           </section>
 
           <section id="study-setup-panel" class="hidden">
@@ -301,6 +341,16 @@ student support=Support"></textarea>
           </section>
         </main>
       </div>
+
+      <footer id="account-footer" class="hidden" style="margin-top:40px; padding-top:20px; border-top:1px solid #e5e7eb; align-items:center; gap:16px; flex-wrap:wrap;">
+        <button id="delete-account-button" class="danger inline" type="button">Delete my account</button>
+        <div id="delete-confirm-box" class="hidden" style="align-items:center; gap:10px; flex-wrap:wrap;">
+          <span class="tiny" style="color:#991b1b;">This will delete your profile and remove you from all studies. Your sign-in credentials will be deactivated on next sign-out. This cannot be undone.</span>
+          <button id="confirm-delete-button" class="danger inline" type="button">Yes, delete</button>
+          <button id="cancel-delete-button" class="ghost inline" type="button">Cancel</button>
+        </div>
+        <div id="delete-account-status" class="status" style="font-size:13px;"></div>
+      </footer>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -344,6 +394,7 @@ student support=Support"></textarea>
       let categoryMergeChartInstance = null;
 
       const authPanel = document.getElementById('auth-panel');
+      const recoveryPanel = document.getElementById('recovery-panel');
       const sessionPanel = document.getElementById('session-panel');
       const studySetupPanel = document.getElementById('study-setup-panel');
       const studyListPanel = document.getElementById('study-list-panel');
@@ -375,6 +426,33 @@ student support=Support"></textarea>
         if (event.key === 'Enter') signIn();
       });
       document.getElementById('sign-out-button').addEventListener('click', signOut);
+
+      document.getElementById('forgot-password-button').addEventListener('click', () => {
+        document.getElementById('forgot-password-box').classList.toggle('hidden');
+      });
+      document.getElementById('send-reset-button').addEventListener('click', sendPasswordReset);
+      document.getElementById('update-password-button').addEventListener('click', updatePassword);
+      document.getElementById('confirm-password-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') updatePassword();
+      });
+
+      document.getElementById('show-change-password-button').addEventListener('click', () => {
+        document.getElementById('change-password-box').classList.toggle('hidden');
+        document.getElementById('delete-confirm-box').classList.add('hidden');
+      });
+      document.getElementById('cancel-change-password-button').addEventListener('click', () => {
+        document.getElementById('change-password-box').classList.add('hidden');
+      });
+      document.getElementById('save-new-password-button').addEventListener('click', saveNewPassword);
+
+      document.getElementById('delete-account-button').addEventListener('click', () => {
+        document.getElementById('delete-confirm-box').classList.toggle('hidden');
+        document.getElementById('change-password-box').classList.add('hidden');
+      });
+      document.getElementById('cancel-delete-button').addEventListener('click', () => {
+        document.getElementById('delete-confirm-box').classList.add('hidden');
+      });
+      document.getElementById('confirm-delete-button').addEventListener('click', deleteMyAccount);
       document.getElementById('create-study-button').addEventListener('click', createStudy);
       document.getElementById('join-study-button').addEventListener('click', joinStudy);
       document.getElementById('save-template-button').addEventListener('click', saveTemplate);
@@ -419,6 +497,65 @@ student support=Support"></textarea>
       async function signOut() {
         if (!supabaseClient) return;
         await supabaseClient.auth.signOut();
+      }
+
+      async function sendPasswordReset() {
+        if (!supabaseClient) return;
+        const email = document.getElementById('auth-email').value.trim();
+        if (!email) return setStatus('reset-request-status', 'Enter your admin email address above first.', 'error');
+        setStatus('reset-request-status', 'Sending reset link...', '');
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + window.location.pathname,
+        });
+        if (error) return setStatus('reset-request-status', error.message, 'error');
+        setStatus('reset-request-status', 'Reset link sent. Check your email, then click the link to return here and set a new password.', 'success');
+      }
+
+      async function updatePassword() {
+        const newPwd = document.getElementById('new-password-input').value;
+        const confirmPwd = document.getElementById('confirm-password-input').value;
+        if (!newPwd) return setStatus('update-password-status', 'Enter a new password.', 'error');
+        if (newPwd.length < 6) return setStatus('update-password-status', 'Password must be at least 6 characters.', 'error');
+        if (newPwd !== confirmPwd) return setStatus('update-password-status', 'Passwords do not match.', 'error');
+        setStatus('update-password-status', 'Updating password...', '');
+        const { error } = await supabaseClient.auth.updateUser({ password: newPwd });
+        if (error) return setStatus('update-password-status', error.message, 'error');
+        setStatus('update-password-status', 'Password updated successfully. Signing you in...', 'success');
+        document.getElementById('new-password-input').value = '';
+        document.getElementById('confirm-password-input').value = '';
+        recoveryPanel.classList.add('hidden');
+        const { data } = await supabaseClient.auth.getSession();
+        await handleAuthChange(data.session);
+      }
+
+      async function saveNewPassword() {
+        const newPwd = document.getElementById('new-password-session').value;
+        const confirmPwd = document.getElementById('confirm-password-session').value;
+        if (!newPwd) return setStatus('change-password-status', 'Enter a new password.', 'error');
+        if (newPwd.length < 6) return setStatus('change-password-status', 'Password must be at least 6 characters.', 'error');
+        if (newPwd !== confirmPwd) return setStatus('change-password-status', 'Passwords do not match.', 'error');
+        setStatus('change-password-status', 'Saving...', '');
+        const { error } = await supabaseClient.auth.updateUser({ password: newPwd });
+        if (error) return setStatus('change-password-status', error.message, 'error');
+        setStatus('change-password-status', 'Password updated.', 'success');
+        document.getElementById('new-password-session').value = '';
+        document.getElementById('confirm-password-session').value = '';
+        document.getElementById('change-password-box').classList.add('hidden');
+      }
+
+      async function deleteMyAccount() {
+        if (!supabaseClient || !sessionUser) return;
+        setStatus('delete-account-status', 'Deleting account data...', '');
+        document.getElementById('delete-confirm-box').classList.add('hidden');
+
+        const userId = sessionUser.id;
+
+        // Remove from study_admins and admin_profiles (RLS-protected)
+        await supabaseClient.from('study_admins').delete().eq('admin_user_id', userId);
+        await supabaseClient.from('admin_profiles').delete().eq('user_id', userId);
+
+        setStatus('delete-account-status', 'Profile data removed. Signing out — your login credentials will be inactive. Contact the app owner to fully remove the authentication record.', 'success');
+        setTimeout(() => supabaseClient.auth.signOut(), 3000);
       }
 
       async function createStudy() {
@@ -878,6 +1015,7 @@ student support=Support"></textarea>
           selectedStudyAdmins = [];
           participantDirectory = [];
           selectedSubmissionIds = new Set();
+          document.getElementById('account-footer').classList.add('hidden');
           return;
         }
 
@@ -885,6 +1023,7 @@ student support=Support"></textarea>
         sessionPanel.classList.remove('hidden');
         studySetupPanel.classList.remove('hidden');
         studyListPanel.classList.remove('hidden');
+        document.getElementById('account-footer').classList.remove('hidden');
         document.getElementById('session-email').textContent = sessionUser.email;
 
         await loadStudies();
@@ -909,8 +1048,21 @@ student support=Support"></textarea>
 
         await handleAuthChange(data.session);
 
-        supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-          await handleAuthChange(session);
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'PASSWORD_RECOVERY') {
+            authPanel.classList.add('hidden');
+            recoveryPanel.classList.remove('hidden');
+            sessionPanel.classList.add('hidden');
+            studySetupPanel.classList.add('hidden');
+            studyListPanel.classList.add('hidden');
+            selectedStudyPanel.classList.add('hidden');
+            directoryPanel.classList.add('hidden');
+            individualPanel.classList.add('hidden');
+            combinedPanel.classList.add('hidden');
+          } else {
+            recoveryPanel.classList.add('hidden');
+            await handleAuthChange(session);
+          }
         });
       }
 
