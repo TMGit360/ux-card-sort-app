@@ -71,6 +71,31 @@
       @media (max-width: 1080px) {
         .shell, .subgrid, .row { grid-template-columns: 1fr; }
       }
+      .accordion-section { border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 28px; }
+      .accordion-btn {
+        display: flex; align-items: center; justify-content: space-between;
+        width: 100%; text-align: left; padding: 10px 0; background: none;
+        border: 0; font: inherit; font-size: 16px; font-weight: 700; color: #111827;
+        cursor: pointer; border-radius: 0;
+      }
+      .accordion-btn:hover { color: #2563eb; }
+      .accordion-chevron { display: inline-block; transition: transform 0.25s; }
+      .accordion-chevron.open { transform: rotate(180deg); }
+      .matrix-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 10px; }
+      .matrix-table { border-collapse: collapse; font-size: 12px; }
+      .matrix-table th {
+        background: #f1f5f9; padding: 5px 8px; font-weight: 600;
+        white-space: nowrap; position: sticky; top: 0; z-index: 1; border-bottom: 2px solid #e5e7eb;
+      }
+      .matrix-table td { padding: 4px 7px; text-align: center; border: 1px solid #e5e7eb; min-width: 36px; }
+      .matrix-row-header {
+        background: #f1f5f9 !important; font-weight: 600; text-align: left !important;
+        white-space: nowrap; position: sticky; left: 0; z-index: 2; min-width: 150px;
+        max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+      }
+      .matrix-col-header { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+      .analysis-subsection { margin-top: 22px; border-top: 1px solid #f1f5f9; padding-top: 18px; }
+      .pdf-btn-row { margin-top: 28px; border-top: 1px solid #e5e7eb; padding-top: 20px; }
     </style>
   </head>
   <body>
@@ -243,6 +268,36 @@ student support=Support"></textarea>
                 </div>
               </div>
             </div>
+
+            <!-- Advanced Analysis accordion -->
+            <div class="accordion-section">
+              <button class="accordion-btn" id="advanced-toggle" type="button">
+                Advanced Analysis
+                <span class="accordion-chevron" id="advanced-chevron">▼</span>
+              </button>
+              <div id="advanced-analysis-body" class="hidden">
+                <div>
+                  <h3 style="margin-bottom:4px;">Popular Placement Matrix</h3>
+                  <p class="tiny" style="margin:0 0 10px;">How often each card was placed in each category across selected submissions. Darker cells = more frequent placement.</p>
+                  <div id="placement-matrix"></div>
+                </div>
+                <div class="analysis-subsection">
+                  <h3 style="margin-bottom:4px;">Similarity Matrix</h3>
+                  <p class="tiny" style="margin:0 0 10px;">How many participants placed each pair of cards in the same category. Darker = stronger co-occurrence pairing.</p>
+                  <div id="similarity-matrix"></div>
+                </div>
+                <div class="analysis-subsection">
+                  <h3 style="margin-bottom:4px;">Dendrogram (BMM)</h3>
+                  <p class="tiny" style="margin:0 0 10px;">Hierarchical clustering by Best Matching Method. Cards that co-occur most frequently merge lowest in the tree.</p>
+                  <div id="dendrogram-container"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PDF export -->
+            <div class="pdf-btn-row">
+              <button id="generate-pdf-button" class="secondary" type="button">⬇ Generate PDF Report</button>
+            </div>
           </section>
         </main>
       </div>
@@ -252,12 +307,15 @@ student support=Support"></textarea>
     <script src="common-scripts.js"></script>
     <script src="supabase-config.js"></script>
     <script src="https://www.gstatic.com/charts/loader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script>
       google.charts.load('current', { packages: ['sankey', 'corechart'] });
 
       const {
         splitToArray: splitLines,
         parseCategoryMergeMap: parseMergeMap,
+        categoryToMergedName,
         buildCardCategorySankeyRows: buildCardSankeyRows,
         buildOriginalMergedSankeyRows: buildMergedSankeyRows,
         escapeHtml: escapeText,
@@ -281,6 +339,9 @@ student support=Support"></textarea>
       let selectedStudyAdmins = [];
       let participantDirectory = [];
       let selectedSubmissionIds = new Set();
+      let barChartInstance = null;
+      let cardCategoryChartInstance = null;
+      let categoryMergeChartInstance = null;
 
       const authPanel = document.getElementById('auth-panel');
       const sessionPanel = document.getElementById('session-panel');
@@ -699,8 +760,8 @@ student support=Support"></textarea>
         dataTable.addColumn('number', 'Card placements');
         dataTable.addRows(pairs);
 
-        const chart = new google.visualization.ColumnChart(container);
-        chart.draw(dataTable, {
+        barChartInstance = new google.visualization.ColumnChart(container);
+        barChartInstance.draw(dataTable, {
           width: '100%',
           height: 360,
           legend: { position: 'none' },
@@ -764,17 +825,21 @@ student support=Support"></textarea>
 
         google.charts.setOnLoadCallback(() => {
           renderBarChart(selectedRows);
-          drawSankey(
+          cardCategoryChartInstance = drawSankey(
             'card-category-chart',
             buildCardSankeyRows(selectedRows, mergeMap),
             'No data for card-to-category Sankey.'
           );
-          drawSankey(
+          categoryMergeChartInstance = drawSankey(
             'category-merge-chart',
             buildMergedSankeyRows(selectedRows, mergeMap),
             'No data for category-merge Sankey.'
           );
         });
+
+        if (!document.getElementById('advanced-analysis-body').classList.contains('hidden')) {
+          renderAdvancedAnalysis();
+        }
       }
 
       function drawSankey(containerId, rows, emptyMessage) {
@@ -782,7 +847,7 @@ student support=Support"></textarea>
 
         if (!rows.length) {
           container.innerHTML = '<p class="muted">' + emptyMessage + '</p>';
-          return;
+          return null;
         }
 
         const dataTable = new google.visualization.DataTable();
@@ -793,6 +858,7 @@ student support=Support"></textarea>
 
         const chart = new google.visualization.Sankey(container);
         chart.draw(dataTable, { width: '100%', height: 420 });
+        return chart;
       }
 
       async function handleAuthChange(session) {
@@ -846,6 +912,512 @@ student support=Support"></textarea>
         supabaseClient.auth.onAuthStateChange(async (_event, session) => {
           await handleAuthChange(session);
         });
+      }
+
+      /* ── Advanced Analysis: accordion toggle ─────────────────── */
+
+      document.getElementById('advanced-toggle').addEventListener('click', () => {
+        const body = document.getElementById('advanced-analysis-body');
+        const chevron = document.getElementById('advanced-chevron');
+        const isOpen = !body.classList.contains('hidden');
+        if (isOpen) {
+          body.classList.add('hidden');
+          chevron.classList.remove('open');
+        } else {
+          body.classList.remove('hidden');
+          chevron.classList.add('open');
+          renderAdvancedAnalysis();
+        }
+      });
+
+      document.getElementById('generate-pdf-button').addEventListener('click', generatePDFReport);
+
+      /* ── Utility ──────────────────────────────────────────────── */
+
+      function truncLabel(str, maxLen) {
+        if (!str) return '';
+        return str.length > maxLen ? str.slice(0, maxLen) + '\u2026' : str;
+      }
+
+      function heatColor(value, maxVal) {
+        if (!maxVal || value === 0) return { bg: '#f8fafc', text: '#94a3b8' };
+        const t = value / maxVal;
+        const r = Math.round(255 + t * (37 - 255));
+        const g = Math.round(255 + t * (99 - 255));
+        const b = Math.round(255 + t * (235 - 255));
+        return { bg: `rgb(${r},${g},${b})`, text: t > 0.52 ? '#fff' : '#111827' };
+      }
+
+      /* ── Popular Placement Matrix ─────────────────────────────── */
+
+      function buildPlacementData(rows, mergeMap) {
+        const cardSet = new Set();
+        const catSet = new Set();
+        const counts = new Map();
+
+        for (const row of rows) {
+          const result = parseResult(row.result_json);
+          const mergedGroups = {};
+          for (const [cat, cards] of Object.entries(result)) {
+            const mc = categoryToMergedName(cat, mergeMap);
+            if (!mergedGroups[mc]) mergedGroups[mc] = [];
+            mergedGroups[mc].push(...(cards || []).filter(Boolean));
+          }
+          for (const [mc, cards] of Object.entries(mergedGroups)) {
+            catSet.add(mc);
+            for (const card of cards) {
+              cardSet.add(card);
+              const key = card + '|||' + mc;
+              counts.set(key, (counts.get(key) || 0) + 1);
+            }
+          }
+        }
+
+        const cardList = [...cardSet].sort((a, b) => a.localeCompare(b));
+        const catList = [...catSet].sort((a, b) => a.localeCompare(b));
+        let maxCount = 0;
+        for (const v of counts.values()) if (v > maxCount) maxCount = v;
+        return { cards: cardList, categories: catList, counts, maxCount };
+      }
+
+      function renderPlacementMatrix(rows, mergeMap) {
+        const container = document.getElementById('placement-matrix');
+        if (!rows.length) {
+          container.innerHTML = '<p class="muted">No submissions selected.</p>';
+          return;
+        }
+        const { cards, categories, counts, maxCount } = buildPlacementData(rows, mergeMap);
+        if (!cards.length) {
+          container.innerHTML = '<p class="muted">No card data found in selected submissions.</p>';
+          return;
+        }
+
+        let html = '<div class="matrix-scroll"><table class="matrix-table"><thead><tr>';
+        html += '<th class="matrix-row-header matrix-col-header">Card \\ Category</th>';
+        for (const cat of categories) {
+          html += `<th class="matrix-col-header" title="${escapeText(cat)}">${escapeText(truncLabel(cat, 16))}</th>`;
+        }
+        html += '</tr></thead><tbody>';
+
+        for (const card of cards) {
+          html += `<tr><td class="matrix-row-header" title="${escapeText(card)}">${escapeText(truncLabel(card, 28))}</td>`;
+          for (const cat of categories) {
+            const val = counts.get(card + '|||' + cat) || 0;
+            const { bg, text } = heatColor(val, maxCount);
+            html += `<td style="background:${bg};color:${text};" title="${escapeText(card)} \u2192 ${escapeText(cat)}: ${val}">${val || ''}</td>`;
+          }
+          html += '</tr>';
+        }
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+      }
+
+      /* ── Similarity Matrix ────────────────────────────────────── */
+
+      function buildSimilarityData(rows, mergeMap) {
+        const cardSet = new Set();
+        const pairCounts = new Map();
+
+        for (const row of rows) {
+          const result = parseResult(row.result_json);
+          const mergedGroups = {};
+          for (const [cat, cards] of Object.entries(result)) {
+            const mc = categoryToMergedName(cat, mergeMap);
+            if (!mergedGroups[mc]) mergedGroups[mc] = [];
+            mergedGroups[mc].push(...(cards || []).filter(Boolean));
+          }
+          for (const cardList of Object.values(mergedGroups)) {
+            for (const c of cardList) cardSet.add(c);
+            for (let i = 0; i < cardList.length; i++) {
+              for (let j = i + 1; j < cardList.length; j++) {
+                const key = [cardList[i], cardList[j]].sort().join('|||');
+                pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
+              }
+            }
+          }
+        }
+
+        const cardList = [...cardSet].sort((a, b) => a.localeCompare(b));
+        let maxCount = 0;
+        for (const v of pairCounts.values()) if (v > maxCount) maxCount = v;
+        return { cards: cardList, pairCounts, maxCount };
+      }
+
+      function renderSimilarityMatrix(rows, mergeMap) {
+        const container = document.getElementById('similarity-matrix');
+        if (!rows.length) {
+          container.innerHTML = '<p class="muted">No submissions selected.</p>';
+          return;
+        }
+        const { cards, pairCounts, maxCount } = buildSimilarityData(rows, mergeMap);
+        if (cards.length < 2) {
+          container.innerHTML = '<p class="muted">Not enough card data to compute similarity.</p>';
+          return;
+        }
+
+        let html = '<div class="matrix-scroll"><table class="matrix-table"><thead><tr>';
+        html += '<th class="matrix-row-header">Card</th>';
+        for (const card of cards) {
+          html += `<th class="matrix-col-header" title="${escapeText(card)}">${escapeText(truncLabel(card, 12))}</th>`;
+        }
+        html += '</tr></thead><tbody>';
+
+        for (let i = 0; i < cards.length; i++) {
+          html += `<tr><td class="matrix-row-header" title="${escapeText(cards[i])}">${escapeText(truncLabel(cards[i], 28))}</td>`;
+          for (let j = 0; j < cards.length; j++) {
+            if (i === j) {
+              html += `<td style="background:#e0e7ff;color:#3730a3;font-weight:700;" title="${escapeText(cards[i])}">\u2014</td>`;
+            } else {
+              const key = [cards[i], cards[j]].sort().join('|||');
+              const val = pairCounts.get(key) || 0;
+              const { bg, text } = heatColor(val, maxCount);
+              html += `<td style="background:${bg};color:${text};" title="${escapeText(cards[i])} + ${escapeText(cards[j])}: ${val}">${val || ''}</td>`;
+            }
+          }
+          html += '</tr>';
+        }
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+      }
+
+      /* ── BMM Dendrogram ───────────────────────────────────────── */
+
+      function computeBMMTree(rows, mergeMap) {
+        const cardSet = new Set();
+        const pairScores = new Map();
+
+        for (const row of rows) {
+          const result = parseResult(row.result_json);
+          // Group by merged category so merge-mapped categories count together
+          const mergedGroups = {};
+          for (const [cat, cards] of Object.entries(result)) {
+            const mc = categoryToMergedName(cat, mergeMap);
+            if (!mergedGroups[mc]) mergedGroups[mc] = [];
+            mergedGroups[mc].push(...(cards || []).filter(Boolean));
+          }
+          for (const cardList of Object.values(mergedGroups)) {
+            for (const c of cardList) cardSet.add(c);
+            // Break category into all base pairs and score each
+            for (let i = 0; i < cardList.length; i++) {
+              for (let j = i + 1; j < cardList.length; j++) {
+                const key = [cardList[i], cardList[j]].sort().join('|||');
+                pairScores.set(key, (pairScores.get(key) || 0) + 1);
+              }
+            }
+          }
+        }
+
+        const cards = [...cardSet].sort((a, b) => a.localeCompare(b));
+        if (cards.length < 2) return { root: null, cards, maxScore: 0 };
+
+        // Sort pairs by score descending (BMM: highest score locked in first)
+        const sortedPairs = [...pairScores.entries()]
+          .map(([key, score]) => {
+            const [a, b] = key.split('|||');
+            return { a, b, score };
+          })
+          .sort((x, y) => y.score - x.score || x.a.localeCompare(y.a));
+
+        const maxScore = sortedPairs[0]?.score || 1;
+
+        // Initialize each card as its own leaf node
+        let nextId = 0;
+        const cardToClusterId = new Map();
+        const clusterNodes = new Map();
+
+        for (const card of cards) {
+          const id = nextId++;
+          cardToClusterId.set(card, id);
+          clusterNodes.set(id, {
+            id, label: card, isLeaf: true,
+            children: [], height: 0, leafCards: [card],
+          });
+        }
+
+        // BMM agglomeration: process pairs highest-score-first
+        // When a pair intersects an existing locked category, agglomerate into it.
+        // All subsets of the new merged cluster are implicitly eliminated because
+        // their member cards now share a single cluster ID.
+        for (const { a, b, score } of sortedPairs) {
+          const idA = cardToClusterId.get(a);
+          const idB = cardToClusterId.get(b);
+          if (idA === undefined || idB === undefined || idA === idB) continue;
+
+          const nodeA = clusterNodes.get(idA);
+          const nodeB = clusterNodes.get(idB);
+          const newId = nextId++;
+          const mergedLeafs = [...nodeA.leafCards, ...nodeB.leafCards];
+
+          const newNode = {
+            id: newId,
+            label: `cluster_${newId}`,
+            isLeaf: false,
+            children: [nodeA, nodeB],
+            height: score,
+            leafCards: mergedLeafs,
+          };
+
+          clusterNodes.delete(idA);
+          clusterNodes.delete(idB);
+          clusterNodes.set(newId, newNode);
+          for (const card of mergedLeafs) cardToClusterId.set(card, newId);
+
+          if (clusterNodes.size === 1) break;
+        }
+
+        // If disconnected components remain (cards never co-occurred), join at height 0
+        const remaining = [...clusterNodes.values()];
+        let root = remaining[0];
+        for (let i = 1; i < remaining.length; i++) {
+          const newId = nextId++;
+          root = {
+            id: newId, label: 'root', isLeaf: false,
+            children: [root, remaining[i]], height: 0,
+            leafCards: [...root.leafCards, ...remaining[i].leafCards],
+          };
+        }
+
+        return { root, cards, maxScore };
+      }
+
+      function renderDendrogramSVG(containerId, root, cards, maxScore) {
+        const container = document.getElementById(containerId);
+        if (!root || cards.length < 2) {
+          container.innerHTML = '<p class="muted">Not enough data to compute a dendrogram.</p>';
+          return;
+        }
+
+        const leafWidth = Math.max(48, Math.min(90, Math.floor(900 / cards.length)));
+        const svgW = cards.length * leafWidth + 80;
+        const svgH = 460;
+        const mTop = 20; const mBottom = 130; const mLeft = 50; const mRight = 20;
+        const plotW = svgW - mLeft - mRight;
+        const plotH = svgH - mTop - mBottom;
+
+        // Assign x via in-order traversal (preserves tree structure)
+        let leafIdx = 0;
+        function assignX(node) {
+          if (node.isLeaf) {
+            node.xPx = leafIdx * leafWidth + leafWidth / 2;
+            leafIdx++;
+          } else {
+            for (const child of node.children) assignX(child);
+            node.xPx = node.children.reduce((s, c) => s + c.xPx, 0) / node.children.length;
+          }
+        }
+        assignX(root);
+
+        // Assign y: high score (most similar) = merge close to leaves = large y (near bottom)
+        // Standard dendrogram: root at top, leaves at bottom
+        // y_px = plotH * (score / maxScore) * 0.88 + plotH * 0.06   [for merge nodes]
+        // leaves: y_px = plotH
+        function assignY(node) {
+          if (node.isLeaf) {
+            node.yPx = plotH;
+          } else {
+            const norm = maxScore > 0 ? node.height / maxScore : 0;
+            node.yPx = plotH * 0.06 + norm * plotH * 0.88;
+            for (const child of node.children) assignY(child);
+          }
+        }
+        assignY(root);
+
+        // Build SVG elements
+        let paths = '';
+        let leafLabels = '';
+        let scoreTags = '';
+
+        function renderNode(node) {
+          if (node.isLeaf) {
+            leafLabels += `<text x="${node.xPx}" y="${plotH + 10}" text-anchor="start" font-size="11" fill="#374151"` +
+              ` transform="rotate(45 ${node.xPx} ${plotH + 10})">${escapeText(truncLabel(node.label, 20))}</text>`;
+            return;
+          }
+          for (const child of node.children) {
+            // Right-angle connector: horizontal from parent x to child x, then vertical to child y
+            paths += `<polyline points="${node.xPx},${node.yPx} ${child.xPx},${node.yPx} ${child.xPx},${child.yPx}"` +
+              ` fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round"/>`;
+            renderNode(child);
+          }
+          if (node.height > 0) {
+            scoreTags += `<text x="${node.xPx + 4}" y="${node.yPx - 4}" font-size="9" fill="#94a3b8">${node.height}</text>`;
+          }
+        }
+        renderNode(root);
+
+        // Y-axis tick marks and labels
+        let axisTicks = '';
+        const tickCount = Math.min(maxScore, 6);
+        for (let i = 0; i <= tickCount; i++) {
+          const score = Math.round((i / tickCount) * maxScore);
+          const norm = maxScore > 0 ? score / maxScore : 0;
+          const yPos = plotH * 0.06 + norm * plotH * 0.88;
+          axisTicks += `<line x1="-4" y1="${yPos}" x2="0" y2="${yPos}" stroke="#cbd5e1" stroke-width="1"/>`;
+          axisTicks += `<text x="-7" y="${yPos + 4}" text-anchor="end" font-size="10" fill="#64748b">${score}</text>`;
+        }
+
+        container.innerHTML = `<div style="overflow-x:auto;">
+          <svg width="${svgW}" height="${svgH}" style="font-family:Arial,sans-serif;display:block;">
+            <g transform="translate(${mLeft},${mTop})">
+              <line x1="0" y1="0" x2="0" y2="${plotH}" stroke="#cbd5e1" stroke-width="1"/>
+              <line x1="0" y1="${plotH}" x2="${plotW}" y2="${plotH}" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4,3"/>
+              ${axisTicks}
+              ${paths}
+              ${leafLabels}
+              ${scoreTags}
+              <text transform="rotate(-90)" x="${-plotH / 2}" y="-34"
+                text-anchor="middle" font-size="11" fill="#64748b">Co-occurrence score</text>
+            </g>
+          </svg>
+        </div>`;
+      }
+
+      function renderAdvancedAnalysis() {
+        const selectedRows = getSelectedSubmissionRows();
+        const mergeMap = parseMergeMap(document.getElementById('merge-map').value);
+        renderPlacementMatrix(selectedRows, mergeMap);
+        renderSimilarityMatrix(selectedRows, mergeMap);
+        const { root, cards, maxScore } = computeBMMTree(selectedRows, mergeMap);
+        renderDendrogramSVG('dendrogram-container', root, cards, maxScore);
+      }
+
+      /* ── PDF Report ───────────────────────────────────────────── */
+
+      async function generatePDFReport() {
+        const btn = document.getElementById('generate-pdf-button');
+        btn.textContent = 'Generating\u2026';
+        btn.disabled = true;
+
+        // Ensure advanced analysis panels are rendered before capture
+        renderAdvancedAnalysis();
+        await new Promise(r => requestAnimationFrame(r));
+
+        // Temporarily unhide the advanced body so html2canvas can capture it
+        const advBody = document.getElementById('advanced-analysis-body');
+        const wasHidden = advBody.classList.contains('hidden');
+        if (wasHidden) {
+          advBody.classList.remove('hidden');
+          await new Promise(r => requestAnimationFrame(r));
+        }
+
+        try {
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+          const pageW = pdf.internal.pageSize.getWidth();
+          const pageH = pdf.internal.pageSize.getHeight();
+          const margin = 40;
+          const contentW = pageW - margin * 2;
+
+          // ── Title page ──
+          pdf.setFontSize(22);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Card Sort Study Report', margin, 70);
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(80, 80, 80);
+          if (selectedStudy) {
+            pdf.text(`Study: ${selectedStudy.study_name}  (${selectedStudy.study_id})`, margin, 100);
+          }
+          const rows = getSelectedSubmissionRows();
+          pdf.text(`Participants included: ${rows.length}`, margin, 118);
+          pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, 136);
+          pdf.setTextColor(0, 0, 0);
+
+          // Helper: capture element as image and append to PDF on a new page
+          async function addSection(elementId, title) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+
+            pdf.addPage();
+            let y = margin;
+
+            pdf.setFontSize(14);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(title, margin, y + 14);
+            y += 36;
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(11);
+
+            try {
+              const canvas = await html2canvas(el, {
+                scale: 1.5,
+                useCORS: true,
+                logging: false,
+                allowTaint: true,
+              });
+              const imgData = canvas.toDataURL('image/jpeg', 0.88);
+              const imgH = (canvas.height * contentW) / canvas.width;
+              // If image is taller than remaining page, scale it down to fit
+              const maxH = pageH - y - margin;
+              const drawH = Math.min(imgH, maxH);
+              const drawW = drawH === maxH ? (canvas.width * maxH) / canvas.height : contentW;
+              pdf.addImage(imgData, 'JPEG', margin, y, drawW, drawH);
+            } catch (e) {
+              pdf.setTextColor(150, 0, 0);
+              pdf.text('(Visualization could not be captured)', margin, y + 20);
+              pdf.setTextColor(0, 0, 0);
+            }
+          }
+
+          // ── Google Charts: use getImageURI for lossless capture ──
+          async function addGoogleChart(chartInstance, containerId, title) {
+            pdf.addPage();
+            let y = margin;
+            pdf.setFontSize(14);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(title, margin, y + 14);
+            y += 36;
+            pdf.setFont('helvetica', 'normal');
+
+            if (chartInstance && typeof chartInstance.getImageURI === 'function') {
+              try {
+                const uri = chartInstance.getImageURI();
+                if (uri && uri.startsWith('data:image/png')) {
+                  const img = new Image();
+                  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = uri; });
+                  const imgH = (img.naturalHeight * contentW) / img.naturalWidth;
+                  const maxH = pageH - y - margin;
+                  const drawH = Math.min(imgH, maxH);
+                  const drawW = drawH === maxH ? (img.naturalWidth * maxH) / img.naturalHeight : contentW;
+                  pdf.addImage(uri, 'PNG', margin, y, drawW, drawH);
+                  return;
+                }
+              } catch (_) {}
+            }
+            // Fallback: html2canvas
+            const el = document.getElementById(containerId);
+            if (el) {
+              try {
+                const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, logging: false });
+                const imgData = canvas.toDataURL('image/jpeg', 0.88);
+                const imgH = (canvas.height * contentW) / canvas.width;
+                pdf.addImage(imgData, 'JPEG', margin, y, contentW, Math.min(imgH, pageH - y - margin));
+              } catch (_) {
+                pdf.setTextColor(150, 0, 0);
+                pdf.text('(Chart could not be captured)', margin, y + 20);
+                pdf.setTextColor(0, 0, 0);
+              }
+            }
+          }
+
+          await addGoogleChart(barChartInstance, 'bar-chart', 'Cards Sorted Per Category');
+          await addGoogleChart(cardCategoryChartInstance, 'card-category-chart', 'Sankey: Card \u2192 Category');
+          await addGoogleChart(categoryMergeChartInstance, 'category-merge-chart', 'Sankey: Original \u2192 Merged Category');
+          await addSection('placement-matrix', 'Popular Placement Matrix');
+          await addSection('similarity-matrix', 'Similarity Matrix');
+          await addSection('dendrogram-container', 'Dendrogram (BMM Clustering)');
+
+          pdf.save(`card-sort-report-${selectedStudy?.study_id || 'export'}.pdf`);
+        } catch (err) {
+          console.error('PDF generation error:', err);
+          alert('PDF generation failed. See the browser console for details.');
+        } finally {
+          if (wasHidden) advBody.classList.add('hidden');
+          btn.textContent = '\u2b07 Generate PDF Report';
+          btn.disabled = false;
+        }
       }
 
       boot();
