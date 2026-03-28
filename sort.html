@@ -559,7 +559,10 @@
       }
       #unsorted-zone { flex-direction: row; flex-wrap: wrap; }
       .cats-scroll { min-height: 55vh; flex: 1; }
-      .cat-col { max-height: none; }
+
+      /* Category columns fill the viewport width on mobile */
+      .cat-col { width: calc(100% - 24px); max-height: none; }
+      .cat-dropzone { min-height: 100px; }
 
       /* Compact header to preserve canvas space */
       .board-hdr { padding: 8px 12px; gap: 6px; }
@@ -1335,7 +1338,6 @@
       refreshAllHints();
       show(elBoard);
       elZoomControls.style.display = 'flex';
-      if (window.innerWidth <= 680) zoomLevel = 0.8;
       applyZoom();
       setStatus('Drag a card onto a category, or tap a card then choose a destination.');
     }
