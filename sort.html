@@ -241,10 +241,15 @@
 
     /* Categories freeform canvas */
     .cats-scroll {
-      position: relative;
       flex: 1;
       overflow: auto;
       min-height: 200px;
+    }
+    #cats-canvas {
+      position: relative;
+      transform-origin: 0 0;
+      min-width: 100%;
+      min-height: 100%;
     }
 
     /* Category column — freely positioned */
@@ -634,7 +639,7 @@
         </div>
         <div id="unsorted-zone"></div>
       </div>
-      <div class="cats-scroll" id="cats-area"></div>
+      <div class="cats-scroll" id="cats-area"><div id="cats-canvas"></div></div>
     </div>
   </div>
 
@@ -721,7 +726,8 @@
     const elBoardStat = document.getElementById('board-status');
     const elUnsorted  = document.getElementById('unsorted-zone');
     const elBadge     = document.getElementById('unsorted-badge');
-    const elCatsArea  = document.getElementById('cats-area');
+    const elCatsArea   = document.getElementById('cats-area');
+    const elCatsCanvas = document.getElementById('cats-canvas');
     const elBtnAddCat = document.getElementById('btn-add-cat');
     const elBtnSubmit = document.getElementById('btn-submit');
     const elGhost     = document.getElementById('drag-ghost');
@@ -739,8 +745,8 @@
     const elBtnZoomOut   = document.getElementById('btn-zoom-out');
 
     function applyZoom() {
-      elBoardBody.style.transform       = 'scale(' + zoomLevel + ')';
-      elBoardBody.style.transformOrigin = '0 0';
+      elCatsCanvas.style.transform = 'scale(' + zoomLevel + ')';
+      elBoardBody.style.transform  = '';
       elBtnZoomIn.disabled  = zoomLevel >= ZOOM_MAX;
       elBtnZoomOut.disabled = zoomLevel <= ZOOM_MIN;
     }
@@ -823,7 +829,7 @@
     function updateProgress() {
       const total    = document.querySelectorAll('#board .card').length;
       const unsorted = elUnsorted.querySelectorAll('.card').length;
-      const floating = elCatsArea.querySelectorAll(':scope > .card').length;
+      const floating = elCatsCanvas.querySelectorAll(':scope > .card').length;
       const sorted   = total - unsorted - floating;
       elBadge.textContent    = unsorted + floating;
       elHdrProg.textContent  = sorted + ' of ' + total + ' sorted';
@@ -963,7 +969,7 @@
       col.append(hdr, dz);
 
       // Position absolutely within the freeform canvas
-      const n = elCatsArea.querySelectorAll('.cat-col').length;
+      const n = elCatsCanvas.querySelectorAll('.cat-col').length;
       const colStride = 274; // 260px width + 14px gap
       const canvasW   = elCatsArea.clientWidth  || 600;
       const canvasH   = elCatsArea.clientHeight || 400;
@@ -973,7 +979,7 @@
       col.style.left  = Math.min(initLeft, canvasW - 274) + 'px';
       col.style.top   = initTop + 'px';
 
-      elCatsArea.appendChild(col);
+      elCatsCanvas.appendChild(col);
       refreshHint(dz);
 
       // Click on the column (not on the name input) moves selected card here
@@ -1143,17 +1149,17 @@
           if (targetDz) {
             // Free-position inside category — no snap
             positionCardInDropzone(card, targetDz, e.clientX, e.clientY);
-          } else if (under2.some(el => el === elCatsArea)) {
+          } else if (under2.some(el => el === elCatsArea || el === elCatsCanvas)) {
             // Float freely on the canvas
-            const cr   = elCatsArea.getBoundingClientRect();
-            const left = Math.max(0, Math.min(fromScreen(e.clientX - dragOffsetX - cr.left), fromScreen(cr.width)  - fromScreen(dragCardWidth)));
-            const top  = Math.max(0, Math.min(fromScreen(e.clientY - dragOffsetY - cr.top),  fromScreen(cr.height) - card.offsetHeight));
+            const cr   = elCatsCanvas.getBoundingClientRect();
+            const left = Math.max(0, fromScreen(e.clientX - dragOffsetX - cr.left));
+            const top  = Math.max(0, fromScreen(e.clientY - dragOffsetY - cr.top));
             card.classList.add('card-floating');
             card.style.position = 'absolute';
             card.style.left     = left + 'px';
             card.style.top      = top  + 'px';
             card.style.width    = fromScreen(dragCardWidth) + 'px';
-            elCatsArea.appendChild(card);
+            elCatsCanvas.appendChild(card);
             afterMove();
           }
           // else: released outside any valid target — card stays put
@@ -1220,9 +1226,9 @@
 
       updateTrashOver(e.clientX, e.clientY);
 
-      const canvas  = elCatsArea.getBoundingClientRect();
-      const newLeft = Math.max(0, fromScreen(e.clientX - catDragOffsetX - canvas.left) + elCatsArea.scrollLeft);
-      const newTop  = Math.max(0, fromScreen(e.clientY - catDragOffsetY - canvas.top)  + elCatsArea.scrollTop);
+      const canvas  = elCatsCanvas.getBoundingClientRect();
+      const newLeft = Math.max(0, fromScreen(e.clientX - catDragOffsetX - canvas.left));
+      const newTop  = Math.max(0, fromScreen(e.clientY - catDragOffsetY - canvas.top));
       dragCatCol.style.left = newLeft + 'px';
       dragCatCol.style.top  = newTop  + 'px';
     }, { passive: true });
@@ -1357,7 +1363,7 @@
       if (!sb || !SESSION) return;
 
       const unsortedCount = elUnsorted.querySelectorAll('.card').length;
-      const floatingCount = elCatsArea.querySelectorAll(':scope > .card').length;
+      const floatingCount = elCatsCanvas.querySelectorAll(':scope > .card').length;
       const remaining     = unsortedCount + floatingCount;
       if (remaining > 0) {
         setStatus(`Please place all cards into a category before submitting. ${remaining} card${remaining === 1 ? '' : 's'} still need${remaining === 1 ? 's' : ''} a category.`, 'err');
