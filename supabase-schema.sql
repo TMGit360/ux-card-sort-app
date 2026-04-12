@@ -434,3 +434,18 @@ grant select on public.study_admins to authenticated;
 grant select, insert, update on public.sort_templates to authenticated;
 grant select on public.participants to authenticated;
 grant select on public.submissions to authenticated;
+
+-- Delete grants required for study deletion flow
+grant delete on public.studies to authenticated;
+grant delete on public.submissions to authenticated;
+
+-- RLS policies for study deletion
+-- Any study admin can delete the study and its submissions.
+-- FK cascades (on delete cascade) handle participants, sort_templates, and study_admins
+-- without needing explicit delete policies on those tables.
+DROP POLICY IF EXISTS "study admins delete studies" ON public.studies;
+DROP POLICY IF EXISTS "study admins delete submissions" ON public.submissions;
+create policy "study admins delete studies" on public.studies
+  for delete using (created_by = auth.uid());
+create policy "study admins delete submissions" on public.submissions
+  for delete using (public.is_study_admin(study_id));

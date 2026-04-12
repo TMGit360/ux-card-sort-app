@@ -243,6 +243,17 @@
                 <p class="tiny">All attached admins can manage this study, review participant data, and generate combined Sankey diagrams.</p>
               </div>
             </div>
+            <div id="delete-study-section" style="margin-top:20px; border-top:1px solid #e5e7eb; padding-top:20px;">
+              <button id="delete-study-button" class="danger inline" type="button">Delete this study</button>
+              <div id="delete-study-confirm-box" class="hidden" style="margin-top:12px;">
+                <p class="tiny" style="color:#991b1b; margin:0 0 10px;">This will permanently delete the study, all participants, all submissions, and all templates. This cannot be undone.</p>
+                <div class="row">
+                  <button id="confirm-delete-study-button" class="danger" type="button">Yes, permanently delete</button>
+                  <button id="cancel-delete-study-button" class="ghost" type="button">Cancel</button>
+                </div>
+                <div id="delete-study-status" class="status"></div>
+              </div>
+            </div>
           </section>
 
           <section class="panel hidden" id="directory-panel">
@@ -469,6 +480,13 @@ student support=Support"></textarea>
       document.getElementById('submission-filter').addEventListener('change', renderDirectory);
       document.getElementById('render-sankey-button').addEventListener('click', renderCombinedCharts);
       document.getElementById('download-csv-button').addEventListener('click', downloadCSV);
+      document.getElementById('delete-study-button').addEventListener('click', () => {
+        document.getElementById('delete-study-confirm-box').classList.toggle('hidden');
+      });
+      document.getElementById('cancel-delete-study-button').addEventListener('click', () => {
+        document.getElementById('delete-study-confirm-box').classList.add('hidden');
+      });
+      document.getElementById('confirm-delete-study-button').addEventListener('click', deleteStudy);
 
       async function signIn() {
         if (!supabaseClient) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
@@ -562,6 +580,49 @@ student support=Support"></textarea>
 
         setStatus('delete-account-status', 'Profile data removed. Signing out — your login credentials will be inactive. Contact the app owner to fully remove the authentication record.', 'success');
         setTimeout(() => supabaseClient.auth.signOut(), 3000);
+      }
+
+      async function deleteStudy() {
+        if (!supabaseClient || !selectedStudy) return;
+        const studyId = selectedStudy.id;
+        const btn = document.getElementById('confirm-delete-study-button');
+        btn.disabled = true;
+        setStatus('delete-study-status', 'Deleting...', '');
+
+        // Pre-delete submissions to avoid the ON DELETE RESTRICT on sort_templates.
+        // (submissions.template_id is RESTRICT, so the cascade from study → templates
+        // would be blocked if submissions still exist when templates are cascade-deleted.)
+        const { error: subErr } = await supabaseClient
+          .from('submissions')
+          .delete()
+          .eq('study_id', studyId);
+        if (subErr) {
+          btn.disabled = false;
+          return setStatus('delete-study-status', subErr.message, 'error');
+        }
+
+        // Delete the study. FK cascades handle participants, sort_templates, and study_admins.
+        const { error: studyErr } = await supabaseClient
+          .from('studies')
+          .delete()
+          .eq('id', studyId);
+        if (studyErr) {
+          btn.disabled = false;
+          return setStatus('delete-study-status', studyErr.message, 'error');
+        }
+
+        selectedStudy = null;
+        selectedTemplate = null;
+        selectedStudyAdmins = [];
+        participantDirectory = [];
+        selectedSubmissionIds = new Set();
+        document.getElementById('delete-study-confirm-box').classList.add('hidden');
+        btn.disabled = false;
+        selectedStudyPanel.classList.add('hidden');
+        directoryPanel.classList.add('hidden');
+        individualPanel.classList.add('hidden');
+        combinedPanel.classList.add('hidden');
+        await loadStudies();
       }
 
       async function createStudy() {
@@ -692,6 +753,10 @@ student support=Support"></textarea>
 
       function renderSelectedStudy() {
         if (!selectedStudy) return;
+
+        document.getElementById('delete-study-confirm-box').classList.add('hidden');
+        document.getElementById('confirm-delete-study-button').disabled = false;
+        setStatus('delete-study-status', '', '');
 
         selectedStudyPanel.classList.remove('hidden');
         directoryPanel.classList.remove('hidden');
@@ -1055,6 +1120,7 @@ student support=Support"></textarea>
         await handleAuthChange(data.session);
 
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'INITIAL_SESSION') return;
           if (event === 'PASSWORD_RECOVERY') {
             authPanel.classList.add('hidden');
             recoveryPanel.classList.remove('hidden');
@@ -1577,6 +1643,16 @@ student support=Support"></textarea>
           btn.disabled = false;
         }
       }
+
+      // When the browser restores this page from the back-forward cache (bfcache),
+      // boot() does not re-run and onAuthStateChange does not re-fire. Re-check the
+      // session here so the UI reflects the actual auth state after navigation.
+      window.addEventListener('pageshow', async (event) => {
+        if (event.persisted && supabaseClient) {
+          const { data } = await supabaseClient.auth.getSession();
+          await handleAuthChange(data.session);
+        }
+      });
 
       boot();
     </script>

@@ -1,0 +1,7 @@
+# Prevent sensitive internal files from being served as public assets
+
+# Reveals full database schema, all RLS policies, and security function logic
+supabase-schema.sql
+
+# Reveals infrastructure stack and operational procedures
+DEPLOYMENT_NOTES.md
