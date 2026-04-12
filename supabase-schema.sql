@@ -326,6 +326,7 @@ select
   s.study_id,
   s.study_name,
   s.public_token,
+  s.is_active,
   s.created_at,
   (
     select count(*)::int
@@ -449,3 +450,34 @@ create policy "study admins delete studies" on public.studies
   for delete using (created_by = auth.uid());
 create policy "study admins delete submissions" on public.submissions
   for delete using (public.is_study_admin(study_id));
+
+-- Study open/close toggle
+ALTER TABLE public.studies
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+
+-- Recreate admin_studies view to expose is_active
+DROP VIEW IF EXISTS public.admin_studies;
+create view public.admin_studies with (security_invoker = true) as
+select
+  s.id,
+  s.study_id,
+  s.study_name,
+  s.public_token,
+  s.is_active,
+  s.created_at,
+  (
+    select count(*)::int
+    from public.submissions sub
+    where sub.study_id = s.id
+  ) as submission_count
+from public.studies s
+where public.is_study_admin(s.id);
+
+grant select on public.admin_studies to authenticated;
+
+-- Allow study admins to update studies (RLS scopes which rows and columns are reachable)
+DROP POLICY IF EXISTS "study admins update study active" ON public.studies;
+create policy "study admins update study active" on public.studies
+  for update using (public.is_study_admin(id));
+
+grant update on public.studies to authenticated;

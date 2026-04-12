@@ -244,7 +244,12 @@
                 <p class="tiny">All attached admins can manage this study, review participant data, and generate combined Sankey diagrams.</p>
               </div>
             </div>
-            <div id="delete-study-section" style="margin-top:20px; border-top:1px solid #e5e7eb; padding-top:20px;">
+            <div style="margin-top:20px; border-top:1px solid #e5e7eb; padding-top:20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+              <button id="toggle-study-active-button" class="ghost inline" type="button">Close study</button>
+              <span id="study-active-status" class="tiny"></span>
+            </div>
+
+            <div id="delete-study-section" style="margin-top:16px;">
               <button id="delete-study-button" class="danger inline" type="button">Delete this study</button>
               <div id="delete-study-confirm-box" class="hidden" style="margin-top:12px;">
                 <p class="tiny" style="color:#991b1b; margin:0 0 10px;">This will permanently delete the study, all participants, all submissions, and all templates. This cannot be undone.</p>
@@ -497,6 +502,7 @@ student support=Support"></textarea>
         document.getElementById('delete-study-confirm-box').classList.add('hidden');
       });
       document.getElementById('confirm-delete-study-button').addEventListener('click', deleteStudy);
+      document.getElementById('toggle-study-active-button').addEventListener('click', toggleStudyActive);
 
       async function signIn() {
         if (!supabaseClient) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
@@ -633,6 +639,41 @@ student support=Support"></textarea>
         individualPanel.classList.add('hidden');
         combinedPanel.classList.add('hidden');
         await loadStudies();
+      }
+
+      async function toggleStudyActive() {
+        if (!supabaseClient || !selectedStudy) return;
+        const newState = !selectedStudy.is_active;
+        const btn = document.getElementById('toggle-study-active-button');
+        btn.disabled = true;
+
+        const { error } = await supabaseClient
+          .from('studies')
+          .update({ is_active: newState })
+          .eq('id', selectedStudy.id);
+
+        btn.disabled = false;
+        if (error) return setStatus('delete-study-status', error.message, 'error');
+
+        selectedStudy.is_active = newState;
+        renderStudyActiveState();
+      }
+
+      function renderStudyActiveState() {
+        if (!selectedStudy) return;
+        const btn = document.getElementById('toggle-study-active-button');
+        const badge = document.getElementById('study-active-status');
+        if (selectedStudy.is_active) {
+          btn.textContent = 'Close study';
+          btn.className = 'ghost inline';
+          badge.textContent = 'Open — accepting responses';
+          badge.style.color = '#166534';
+        } else {
+          btn.textContent = 'Reopen study';
+          btn.className = 'secondary inline';
+          badge.textContent = 'Closed — not accepting responses';
+          badge.style.color = '#991b1b';
+        }
       }
 
       async function createStudy() {
@@ -775,6 +816,7 @@ student support=Support"></textarea>
         document.getElementById('delete-study-confirm-box').classList.add('hidden');
         document.getElementById('confirm-delete-study-button').disabled = false;
         setStatus('delete-study-status', '', '');
+        renderStudyActiveState();
 
         selectedStudyPanel.classList.remove('hidden');
         directoryPanel.classList.remove('hidden');
