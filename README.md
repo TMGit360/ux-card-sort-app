@@ -56,9 +56,7 @@ ux-card-sort-app/
 ├── sort.html             # Participant card sorting interface
 ├── admin.html            # Researcher dashboard and analysis
 ├── common-scripts.js     # Shared utility functions
-├── supabase-config.js    # Supabase project URL and anon key
-├── supabase-schema.sql   # Full database schema and RLS policies
-└── DEPLOYMENT_NOTES.md   # Deployment reference
+└── supabase-config.js    # Supabase connection (not committed in production forks)
 ```
 
 ---
@@ -68,7 +66,7 @@ ux-card-sort-app/
 ### 1. Supabase
 
 1. Create a new project at [supabase.com](https://supabase.com).
-2. Open the **SQL Editor** and run `supabase-schema.sql` to create all tables, views, functions, and RLS policies.
+2. Open the **SQL Editor** and run the schema migration script (kept outside the repository) to create all tables, views, functions, and RLS policies.
 3. In **Authentication > Providers**, confirm Email is enabled.
 4. In **Project Settings > API**, copy your **Project URL** and **anon public key**.
 5. Paste them into `supabase-config.js`:
