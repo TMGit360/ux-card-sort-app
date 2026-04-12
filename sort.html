@@ -576,6 +576,15 @@
       #board-status { font-size: 12px; }
       #hdr-progress { font-size: 12px; padding: 3px 9px; }
     }
+    #page-footer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      padding: 12px 16px;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -661,6 +670,8 @@
     <button id="btn-zoom-out" title="Zoom out">−</button>
     <button id="btn-zoom-in"  title="Zoom in">+</button>
   </div>
+
+  <footer id="page-footer">&copy; 2026 Thomas Macaluso. All rights reserved.</footer>
 
   <!-- Click-to-move tray -->
   <div id="move-tray">
@@ -781,6 +792,7 @@
     function show(el) {
       ALL_VIEWS.forEach(v => v.classList.add('hidden'));
       el.classList.remove('hidden');
+      document.getElementById('page-footer').classList.toggle('hidden', el === elBoard);
     }
 
     function showError(msg) {

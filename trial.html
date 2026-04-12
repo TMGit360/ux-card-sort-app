@@ -38,6 +38,15 @@
     p { color: #64748b; margin: 0; line-height: 1.6; }
     strong { display: block; font-size: 1.1rem; color: #b91c1c; margin-bottom: 10px; }
     .hidden { display: none; }
+    footer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      padding: 12px 16px;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -51,6 +60,8 @@
       <p>Contact the study administrator if you believe this is an error.</p>
     </div>
   </div>
+
+  <footer>&copy; 2026 Thomas Macaluso. All rights reserved.</footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
