@@ -98,6 +98,7 @@
       .pdf-btn-row { margin-top: 28px; border-top: 1px solid #e5e7eb; padding-top: 20px; }
       button.danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
       button.danger:hover { background: #fecaca; }
+      button.tab-inactive { opacity: 0.45; }
       .account-section { border-top: 1px solid #e5e7eb; margin-top: 14px; padding-top: 14px; }
       #account-footer:not(.hidden) { display: flex; }
       #delete-confirm-box:not(.hidden) { display: flex; }
@@ -173,7 +174,7 @@
             <h2>Study access</h2>
             <div class="row">
               <button id="show-create-study" class="inline" type="button">New study</button>
-              <button id="show-join-study" class="inline secondary" type="button">Join existing study</button>
+              <button id="show-join-study" class="inline secondary tab-inactive" type="button">Join existing study</button>
             </div>
 
             <div id="create-study-box" class="stack">
@@ -378,6 +379,8 @@ student support=Support"></textarea>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script>
       google.charts.load('current', { packages: ['sankey', 'corechart'] });
+      let chartsReady = false;
+      google.charts.setOnLoadCallback(() => { chartsReady = true; });
 
       const {
         splitToArray: splitLines,
@@ -430,11 +433,15 @@ student support=Support"></textarea>
       document.getElementById('show-create-study').addEventListener('click', () => {
         document.getElementById('create-study-box').classList.remove('hidden');
         document.getElementById('join-study-box').classList.add('hidden');
+        document.getElementById('show-create-study').classList.remove('tab-inactive');
+        document.getElementById('show-join-study').classList.add('tab-inactive');
       });
 
       document.getElementById('show-join-study').addEventListener('click', () => {
         document.getElementById('join-study-box').classList.remove('hidden');
         document.getElementById('create-study-box').classList.add('hidden');
+        document.getElementById('show-join-study').classList.remove('tab-inactive');
+        document.getElementById('show-create-study').classList.add('tab-inactive');
       });
 
       document.getElementById('sign-in-button').addEventListener('click', signIn);
@@ -475,6 +482,9 @@ student support=Support"></textarea>
       document.getElementById('save-template-button').addEventListener('click', saveTemplate);
       document.getElementById('copy-link-button').addEventListener('click', async () => {
         await navigator.clipboard.writeText(document.getElementById('participant-link').value);
+        const btn = document.getElementById('copy-link-button');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy participant link'; }, 2000);
       });
       document.getElementById('participant-search').addEventListener('input', renderDirectory);
       document.getElementById('submission-filter').addEventListener('change', renderDirectory);
@@ -643,6 +653,14 @@ student support=Support"></textarea>
         const { data, error } = await supabaseClient.rpc('create_study_with_template', payload);
         if (error) return setStatus('study-setup-status', error.message, 'error');
         setStatus('study-setup-status', 'Study created.', 'success');
+        document.getElementById('new-study-id').value = '';
+        document.getElementById('new-study-name').value = '';
+        document.getElementById('new-study-key').value = '';
+        document.getElementById('template-name').value = 'Default template';
+        document.getElementById('new-cards').value = '';
+        document.getElementById('new-categories').value = '';
+        document.getElementById('allow-edit').checked = true;
+        document.getElementById('randomize').checked = false;
         await loadStudies();
         const created = Array.isArray(data) ? data[0] : data;
         if (created?.study_uuid) await selectStudy(created.study_uuid);
@@ -1031,7 +1049,7 @@ student support=Support"></textarea>
         const selectedRows = getSelectedSubmissionRows();
         const mergeMap = parseMergeMap(document.getElementById('merge-map').value);
 
-        google.charts.setOnLoadCallback(() => {
+        function doRender() {
           renderBarChart(selectedRows);
           cardCategoryChartInstance = drawSankey(
             'card-category-chart',
@@ -1043,7 +1061,16 @@ student support=Support"></textarea>
             buildMergedSankeyRows(selectedRows, mergeMap),
             'No data for category-merge Sankey.'
           );
-        });
+        }
+
+        // If charts are already loaded call directly; otherwise register once.
+        // Avoids queuing duplicate callbacks when renderCombinedCharts is called
+        // repeatedly before the Google Charts packages finish loading.
+        if (chartsReady) {
+          doRender();
+        } else {
+          google.charts.setOnLoadCallback(doRender);
+        }
 
         if (!document.getElementById('advanced-analysis-body').classList.contains('hidden')) {
           renderAdvancedAnalysis();
@@ -1096,6 +1123,12 @@ student support=Support"></textarea>
         studyListPanel.classList.remove('hidden');
         document.getElementById('account-footer').classList.remove('hidden');
         document.getElementById('session-email').textContent = sessionUser.email;
+        // Always restore to create-study tab on login/session restore
+        document.getElementById('create-study-box').classList.remove('hidden');
+        document.getElementById('join-study-box').classList.add('hidden');
+        document.getElementById('show-create-study').classList.remove('tab-inactive');
+        document.getElementById('show-join-study').classList.add('tab-inactive');
+        setStatus('study-setup-status', '', '');
 
         await loadStudies();
 

@@ -21,16 +21,26 @@
       background: #fff;
       border-radius: 20px;
       box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10);
-      padding: 48px 40px;
-      max-width: 400px;
+      overflow: hidden;
+      max-width: 360px;
       width: 100%;
       text-align: center;
     }
-    h1 { margin: 0 0 10px; font-size: 1.6rem; }
-    p  { color: #64748b; margin: 0 0 28px; line-height: 1.6; }
+    .accent {
+      height: 5px;
+      background: #2563eb;
+    }
+    .inner {
+      padding: 52px 40px 48px;
+    }
+    h1 {
+      margin: 0 0 32px;
+      font-size: 1.75rem;
+      letter-spacing: -0.01em;
+    }
     a.btn {
       display: inline-block;
-      padding: 13px 28px;
+      padding: 13px 32px;
       background: #2563eb;
       color: #fff;
       text-decoration: none;
@@ -40,19 +50,15 @@
       transition: background 0.15s;
     }
     a.btn:hover { background: #1d4ed8; }
-    .note {
-      margin-top: 22px;
-      font-size: 13px;
-      color: #94a3b8;
-    }
   </style>
 </head>
 <body>
   <div class="box">
-    <h1>Card Sort Tool</h1>
-    <p>Participants use a study-specific link shared by the administrator.<br />Administrators can create and manage studies here.</p>
-    <a class="btn" href="admin.html">Go to Admin →</a>
-    <p class="note">Participant links look like <code>sort.html?token=…</code></p>
+    <div class="accent"></div>
+    <div class="inner">
+      <h1>Card Sort Tool</h1>
+      <a class="btn" href="admin.html">Go to Admin →</a>
+    </div>
   </div>
 </body>
 </html>

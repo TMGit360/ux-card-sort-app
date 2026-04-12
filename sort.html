@@ -592,7 +592,7 @@
   <div id="consent-view" class="page-center hidden">
     <div class="consent-box">
       <h1>Before you begin</h1>
-      <p>This card sort asks you to organize items into categories based on the instructions provided. The facilitator will explain the activity and provide written instructions. Your name and responses will be collected and reviewed by the study administrator. Participation is voluntary.</p>
+      <p>Welcome, and thank you for participating. In this card sort activity, you will organize items into categories based on the instructions provided. The facilitator will explain the activity and provide written instructions to guide you. Your name and responses will be collected and reviewed by the study administrator. Participation is completely voluntary.</p>
       <div class="consent-actions">
         <button id="btn-consent-agree">I Agree</button>
         <button id="btn-consent-exit">Exit</button>
@@ -1326,7 +1326,10 @@
       // Place cards in the unsorted pile
       let cards = toArray(session.cards);
       if (session.is_randomized) {
-        cards = [...cards].sort(() => Math.random() - 0.5);
+        for (let i = cards.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [cards[i], cards[j]] = [cards[j], cards[i]];
+        }
       }
       cards.forEach(text => elUnsorted.appendChild(makeCard(text)));
 
