@@ -224,6 +224,28 @@
                 <button id="copy-link-button" class="ghost" type="button">Copy participant link</button>
               </div>
             </div>
+            <div style="margin-top:16px; padding:14px; background:#f8fafc; border-radius:12px; border:1px solid #e5e7eb;">
+              <h3 style="margin:0 0 10px; font-size:14px;">Generate trial link</h3>
+              <div class="row" style="margin-bottom:10px;">
+                <div>
+                  <label for="trial-days" style="font-size:13px;">Expires after (days)</label>
+                  <input id="trial-days" type="number" value="7" min="1" max="365" style="margin-bottom:0;" />
+                </div>
+                <div style="display:flex; align-items:flex-end; padding-bottom:14px;">
+                  <label style="font-weight:normal; font-size:13px; display:flex; align-items:center; gap:8px; margin:0;">
+                    <input id="trial-single-use" type="checkbox" checked style="width:auto; margin:0;" />
+                    Single use
+                  </label>
+                </div>
+              </div>
+              <button id="generate-trial-button" class="ghost" type="button">Generate trial link</button>
+              <div id="trial-link-box" class="hidden" style="margin-top:10px;">
+                <label for="trial-link-output" style="font-size:13px;">Trial link</label>
+                <input id="trial-link-output" readonly style="margin-bottom:6px;" />
+                <button id="copy-trial-link-button" class="ghost" type="button">Copy trial link</button>
+              </div>
+              <div id="trial-generate-status" class="status" style="font-size:13px;"></div>
+            </div>
             <div class="subgrid" style="margin-top: 18px;">
               <div>
                 <h3>Update study template</h3>
@@ -503,6 +525,13 @@ student support=Support"></textarea>
       });
       document.getElementById('confirm-delete-study-button').addEventListener('click', deleteStudy);
       document.getElementById('toggle-study-active-button').addEventListener('click', toggleStudyActive);
+      document.getElementById('generate-trial-button').addEventListener('click', generateTrialLink);
+      document.getElementById('copy-trial-link-button').addEventListener('click', async () => {
+        await navigator.clipboard.writeText(document.getElementById('trial-link-output').value);
+        const btn = document.getElementById('copy-trial-link-button');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy trial link'; }, 2000);
+      });
 
       async function signIn() {
         if (!supabaseClient) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
@@ -657,6 +686,27 @@ student support=Support"></textarea>
 
         selectedStudy.is_active = newState;
         renderStudyActiveState();
+      }
+
+      async function generateTrialLink() {
+        if (!supabaseClient || !selectedStudy) return;
+        const days = parseInt(document.getElementById('trial-days').value, 10);
+        const singleUse = document.getElementById('trial-single-use').checked;
+        if (!days || days < 1 || days > 365) {
+          return setStatus('trial-generate-status', 'Enter a number of days between 1 and 365.', 'error');
+        }
+        setStatus('trial-generate-status', 'Generating...', '');
+        const { data, error } = await supabaseClient.rpc('generate_trial_token', {
+          p_study_id: selectedStudy.id,
+          p_expires_in_days: days,
+          p_is_single_use: singleUse,
+        });
+        if (error) return setStatus('trial-generate-status', error.message, 'error');
+        const basePath = window.location.pathname.replace(/\/[^/]*$/, '/');
+        const trialLink = `${window.location.origin}${basePath}trial.html?token=${data}`;
+        document.getElementById('trial-link-output').value = trialLink;
+        document.getElementById('trial-link-box').classList.remove('hidden');
+        setStatus('trial-generate-status', `Expires in ${days} day${days === 1 ? '' : 's'}${singleUse ? ', single use.' : ', multi-use.'}`, 'success');
       }
 
       function renderStudyActiveState() {
@@ -816,6 +866,9 @@ student support=Support"></textarea>
         document.getElementById('delete-study-confirm-box').classList.add('hidden');
         document.getElementById('confirm-delete-study-button').disabled = false;
         setStatus('delete-study-status', '', '');
+        setStatus('trial-generate-status', '', '');
+        document.getElementById('trial-link-box').classList.add('hidden');
+        document.getElementById('trial-link-output').value = '';
         renderStudyActiveState();
 
         selectedStudyPanel.classList.remove('hidden');

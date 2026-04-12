@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trial Access</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    .box {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10);
+      padding: 48px 40px;
+      max-width: 400px;
+      width: 100%;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    p { color: #64748b; margin: 0; line-height: 1.6; }
+    strong { display: block; font-size: 1.1rem; color: #b91c1c; margin-bottom: 10px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div id="loading-view">
+      <div class="spinner"></div>
+      <p>Validating trial access&hellip;</p>
+    </div>
+    <div id="error-view" class="hidden">
+      <strong id="error-text"></strong>
+      <p>Contact the study administrator if you believe this is an error.</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script>
+    const cfg = window.CARD_SORT_SUPABASE_CONFIG || {};
+    const sb = (cfg.supabaseUrl && cfg.supabaseAnonKey && !cfg.supabaseUrl.includes('YOUR_PROJECT'))
+      ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey)
+      : null;
+
+    const trialToken = new URLSearchParams(location.search).get('token');
+
+    function showError(msg) {
+      document.getElementById('loading-view').classList.add('hidden');
+      document.getElementById('error-text').textContent = msg;
+      document.getElementById('error-view').classList.remove('hidden');
+    }
+
+    async function boot() {
+      if (!trialToken) { showError('No trial token found in this link.'); return; }
+      if (!sb)         { showError('Application is not configured correctly.'); return; }
+
+      try {
+        const { data, error } = await sb.rpc('redeem_trial_token', { p_token: trialToken });
+        if (error) throw error;
+
+        const result = Array.isArray(data) ? data[0] : data;
+        if (!result?.public_token) throw new Error('Unexpected response. Please try again.');
+
+        const basePath = location.pathname.replace(/\/[^/]*$/, '/');
+        location.replace(basePath + 'sort.html?token=' + encodeURIComponent(result.public_token));
+      } catch (err) {
+        showError(err.message || 'Unable to validate this trial link.');
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>
