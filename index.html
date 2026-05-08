@@ -3,72 +3,180 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Card Sort Tool</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-      background: #f1f5f9;
-      color: #1e293b;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 24px;
-      box-sizing: border-box;
-    }
-    .box {
-      background: #fff;
-      border-radius: 20px;
-      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10);
-      overflow: hidden;
-      max-width: 360px;
-      width: 100%;
-      text-align: center;
-    }
-    .accent {
-      height: 5px;
-      background: #2563eb;
-    }
-    .inner {
-      padding: 52px 40px 48px;
-    }
-    h1 {
-      margin: 0 0 32px;
-      font-size: 1.75rem;
-      letter-spacing: -0.01em;
-    }
-    a.btn {
-      display: inline-block;
-      padding: 13px 32px;
-      background: #2563eb;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 16px;
-      transition: background 0.15s;
-    }
-    a.btn:hover { background: #1d4ed8; }
-    footer {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      text-align: center;
-      font-size: 12px;
-      color: #94a3b8;
-      padding: 12px 16px;
-      pointer-events: none;
-    }
-  </style>
+  <title>Card Sort Tool — Information Architecture Research</title>
+
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="box">
-    <div class="accent"></div>
-    <div class="inner">
-      <h1>Card Sort Tool</h1>
-      <a class="btn" href="admin.html">Go to Admin →</a>
+
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <!-- ===== Navbar ===== -->
+  <nav class="z-depth-0" role="navigation">
+    <div class="nav-wrapper container">
+      <a href="#home" class="brand-logo">
+        Card Sort Tool
+      </a>
+      <a href="#" data-target="mobile-menu" class="sidenav-trigger" aria-label="Open menu" aria-controls="mobile-menu"><i class="material-icons" style="color:var(--ink);" aria-hidden="true">menu</i></a>
+      <ul class="right hide-on-med-and-down">
+        <li class="active"><a href="#home" aria-current="page">Home</a></li>
+        <li><a href="admin.html">Admin Login</a></li>
+        <li><a href="trial.html">Participant Login</a></li>
+        <li><a href="#about">About</a></li>
+      </ul>
     </div>
-  </div>
-  <footer>&copy; 2026 Thomas Macaluso. All rights reserved.</footer>
+  </nav>
+  <ul class="sidenav" id="mobile-menu">
+    <li><a href="#home">Home</a></li>
+    <li><a href="admin.html">Admin Login</a></li>
+    <li><a href="trial.html">Participant Login</a></li>
+    <li><a href="#about">About</a></li>
+  </ul>
+
+  <main id="main">
+  <!-- ===== Hero ===== -->
+  <header class="hero" id="home">
+    <div class="container">
+      <div class="row valign-wrapper" style="margin-bottom:0;">
+        <div class="col s12 m12 l12">
+          <h1>Card Sort Tool</h1>
+          <p class="lead">A browser-based tool for running open, hybrid, and closed card sort studies.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Features ===== -->
+  <section class="block alt" id="features">
+    <div class="container">
+      <h2 class="section-title">Features</h2>
+      <p class="section-sub">Three sort types are supported. The method is selected when the study is configured.</p>
+      <div class="row">
+        <div class="col s12 m4">
+          <div class="sort-type">
+            <span class="tag">Open</span>
+            <h3>Open card sort</h3>
+            <p>Participants create their own categories. No predefined groups are provided.</p>
+          </div>
+        </div>
+        <div class="col s12 m4">
+          <div class="sort-type">
+            <span class="tag">Hybrid</span>
+            <h3>Hybrid card sort</h3>
+            <p>Starter categories are provided, and participants may add their own.</p>
+          </div>
+        </div>
+        <div class="col s12 m4">
+          <div class="sort-type">
+            <span class="tag">Closed</span>
+            <h3>Closed card sort</h3>
+            <p>Participants sort cards into a fixed set of predefined categories. New categories cannot be added.</p>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="margin-top: 28px;">
+        <div class="col s12 m6 l4">
+          <div class="feature-card">
+            <span class="icon-circle" aria-hidden="true"><i class="material-icons" aria-hidden="true">groups</i></span>
+            <h3>Multi-admin studies</h3>
+            <p>Additional researchers can join an existing study using its study ID and study key.</p>
+          </div>
+        </div>
+        <div class="col s12 m6 l4">
+          <div class="feature-card">
+            <span class="icon-circle" aria-hidden="true"><i class="material-icons" aria-hidden="true">shuffle</i></span>
+            <h3>Randomized order</h3>
+            <p>Card order is randomized per participant.</p>
+          </div>
+        </div>
+        <div class="col s12 m6 l4">
+          <div class="feature-card">
+            <span class="icon-circle" aria-hidden="true"><i class="material-icons" aria-hidden="true">drag_indicator</i></span>
+            <h3>Drag-and-drop interface</h3>
+            <p>The participant interface runs in the browser on desktop and tablet. No installation is required.</p>
+          </div>
+        </div>
+        <div class="col s12 m6 l4">
+          <div class="feature-card">
+            <span class="icon-circle" aria-hidden="true"><i class="material-icons" aria-hidden="true">lock</i></span>
+            <h3>Row-level security</h3>
+            <p>Researchers can read and write data only for studies they own or have joined.</p>
+          </div>
+        </div>
+        <div class="col s12 m6 l4">
+          <div class="feature-card">
+            <span class="icon-circle" aria-hidden="true"><i class="material-icons" aria-hidden="true">insights</i></span>
+            <h3>Analysis</h3>
+            <p>The admin dashboard generates the following visualizations and tables from submitted sorts.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== About ===== -->
+  <section class="block" id="about">
+    <div class="container">
+      <div class="about-card">
+        <div class="row valign-wrapper" style="margin-bottom:0;">
+          <div class="col s12 m8">
+            <h3>About</h3>
+            <p>The Card Sort Tool is a browser-based application for running card sort studies. Researchers create studies in the admin dashboard, share a participant link, and review submissions and analysis in the same dashboard.</p>
+            <p>The application is a static site built with HTML, CSS, and vanilla JavaScript. It uses Supabase for authentication and data storage, Google Charts for visualizations, and jsPDF with html2canvas for PDF export.</p>
+          </div>
+          <div class="col s12 m4 hide-on-small-only center-align">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  </main>
+
+  <!-- ===== Footer ===== -->
+  <footer class="page-footer">
+    <div class="container">
+      <div class="row">
+        <div class="col l6 s12">
+          <h2 class="white-text" style="font-size:1.5rem;">Card Sort Tool</h2>
+          <p class="grey-text text-lighten-3">A browser-based application for open, hybrid, and closed card sort studies.</p>
+        </div>
+        <div class="col l3 s6">
+          <h3 class="white-text" style="font-size:1.1rem;">Sections</h3>
+          <ul>
+            <li><a class="grey-text text-lighten-3" href="#home">Home</a></li>
+            <li><a class="grey-text text-lighten-3" href="#features">Features</a></li>
+            <li><a class="grey-text text-lighten-3" href="#about">About</a></li>
+          </ul>
+        </div>
+        <div class="col l3 s6">
+          <h3 class="white-text" style="font-size:1.1rem;">Access</h3>
+          <ul>
+            <li><a class="grey-text text-lighten-3" href="admin.html">Admin Login</a></li>
+            <li><a class="grey-text text-lighten-3" href="trial.html">Participant Login</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-copyright">
+      <div class="container">&copy; 2026 Thomas Macaluso. All rights reserved.</div>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        if (window.M && M.Sidenav) {
+          M.Sidenav.init(document.querySelectorAll('.sidenav'));
+        }
+      } catch (err) {
+        console.warn('Sidenav init failed:', err);
+      }
+    });
+  </script>
 </body>
 </html>

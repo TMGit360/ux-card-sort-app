@@ -4,44 +4,96 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Card Sort Administration</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet" />
     <style>
-      body { margin: 0; font-family: Arial, sans-serif; background: #f5f7fb; color: #111827; }
+      :root {
+        --brand: #80A1BA;
+        --brand-dark: #5D8AA8;
+        --brand-deep: #2C3E50;
+        --ink: #1e293b;
+        --muted: #364654;
+        --bg: #80A1BA;
+        --surface: #FFF7DD;
+        --accent: #91C4C3;
+        --soft: #B4DEBD;
+        --paper-border: #d8d2b4;
+        --paper-edge: #c7c0a0;
+      }
+      body {
+        margin: 0;
+        font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+      }
+      h1, h2, h3, h4 {
+        font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        color: var(--brand-deep);
+      }
+      /* keeping legacy declaration for any inline overrides */
+      body.legacy { background: #f5f7fb; color: #111827; }
       * { box-sizing: border-box; }
-      .page { max-width: 1440px; margin: 0 auto; padding: 24px 18px 60px; }
+      .page { max-width: 1440px; margin: 0 auto; padding: 24px 18px 60px; position: relative; }
       .shell { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
       .panel {
-        background: #fff;
-        border-radius: 16px;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-        padding: 20px;
+        background: var(--surface);
+        border-radius: 8px;
+        border: 1px solid var(--paper-border);
+        box-shadow: 0 1px 0 var(--paper-border), 0 8px 22px rgba(15, 23, 42, 0.10);
+        padding: 22px;
       }
       h1, h2, h3, h4 { margin-top: 0; }
-      label { display: block; font-weight: 700; margin-bottom: 8px; }
+      /* Top-of-page bar styled to match the index.html navbar */
+      .page > h1 {
+        background: var(--surface);
+        margin: -24px -18px 28px;
+        padding: 14px 28px;
+        border-bottom: 1px solid var(--paper-border);
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--brand-deep);
+        line-height: 1.2;
+      }
+      h2 { font-size: 1.2rem; }
+      label { display: block; font-weight: 700; margin-bottom: 8px; color: var(--brand-deep); }
       input, textarea, button, select {
         width: 100%;
         font: inherit;
-        border-radius: 10px;
+        border-radius: 6px;
       }
       input, textarea, select {
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--paper-border);
+        background: #fff;
+        color: var(--ink);
         padding: 11px 12px;
         margin-bottom: 14px;
+      }
+      input:focus-visible, textarea:focus-visible, select:focus-visible {
+        outline: 3px solid var(--brand-deep);
+        outline-offset: 1px;
+        border-color: var(--brand-deep);
       }
       textarea { min-height: 110px; resize: vertical; }
       button {
         border: 0;
-        background: #2563eb;
-        color: #fff;
+        background: var(--brand-deep);
+        color: var(--surface);
         padding: 11px 14px;
         font-weight: 700;
+        font-family: inherit;
         cursor: pointer;
       }
-      button.secondary { background: #0f172a; }
-      button.ghost { background: #eef2ff; color: #1e3a8a; }
+      button:hover { background: #1f2d3d; }
+      button:focus-visible { outline: 3px solid var(--brand-deep); outline-offset: 2px; }
+      button.secondary { background: var(--brand); color: #fff; }
+      button.secondary:hover { background: var(--brand-dark); }
+      button.ghost { background: var(--soft); color: var(--brand-deep); }
+      button.ghost:hover { background: #a4d2ad; }
       button.inline { width: auto; }
-      .muted { color: #6b7280; }
+      .muted { color: var(--muted); }
       .status { min-height: 22px; font-size: 14px; }
-      .error { color: #b91c1c; }
+      .error { color: #991b1b; }
       .success { color: #166534; }
       .hidden { display: none; }
       .stack > * + * { margin-top: 16px; }
@@ -50,69 +102,702 @@
       .chips { display: flex; flex-wrap: wrap; gap: 8px; }
       .chip {
         display: inline-flex; align-items: center; gap: 8px;
-        padding: 8px 10px; border-radius: 999px; background: #eff6ff; color: #1d4ed8;
+        padding: 8px 10px; border-radius: 999px; background: var(--soft); color: var(--brand-deep);
+        font-weight: 600;
       }
       .study-card {
-        border: 1px solid #dbeafe; border-radius: 12px; padding: 14px; margin-bottom: 12px;
+        border: 1px solid var(--paper-border); border-radius: 6px; padding: 14px; margin-bottom: 12px;
+        background: #fff;
       }
-      .study-card.active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
+      .study-card.active { border-color: var(--brand-deep); box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.18); }
       .directory-table { width: 100%; border-collapse: collapse; }
-      .directory-table th, .directory-table td { border-bottom: 1px solid #e5e7eb; padding: 10px 8px; text-align: left; vertical-align: top; }
-      .directory-table th { font-size: 13px; text-transform: uppercase; color: #64748b; }
+      .directory-table th, .directory-table td { border-bottom: 1px solid var(--paper-border); padding: 10px 8px; text-align: left; vertical-align: top; }
+      .directory-table th { font-size: 13px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.04em; }
       .result-card {
-        border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; margin-bottom: 12px; background: #fff;
+        border: 1px solid var(--paper-border); border-radius: 6px; padding: 14px; margin-bottom: 12px; background: #fff;
       }
       .category-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-      .category-box { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #f8fafc; }
+      .category-box { border: 1px solid var(--paper-border); border-radius: 6px; padding: 12px; background: #fff; }
       .category-box ul { margin: 10px 0 0; padding-left: 20px; }
       .chart { min-height: 420px; }
-      .tiny { font-size: 12px; color: #64748b; }
-      code { background: #f1f5f9; padding: 2px 6px; border-radius: 6px; }
+      .tiny { font-size: 12px; color: var(--muted); }
+      code { background: #fff; border: 1px solid var(--paper-border); padding: 2px 6px; border-radius: 4px; }
+      a { color: var(--brand-deep); }
+      a:focus-visible { outline: 3px solid var(--brand-deep); outline-offset: 2px; }
       @media (max-width: 1080px) {
         .shell, .subgrid, .row { grid-template-columns: 1fr; }
       }
-      .accordion-section { border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 28px; }
+      .accordion-section { border-top: 1px solid var(--paper-border); padding-top: 20px; margin-top: 28px; }
       .accordion-btn {
         display: flex; align-items: center; justify-content: space-between;
         width: 100%; text-align: left; padding: 10px 0; background: none;
-        border: 0; font: inherit; font-size: 16px; font-weight: 700; color: #111827;
+        border: 0; font: inherit; font-size: 16px; font-weight: 700; color: var(--brand-deep);
+        font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
         cursor: pointer; border-radius: 0;
       }
-      .accordion-btn:hover { color: #2563eb; }
+      .accordion-btn:hover { color: var(--brand); }
+      .accordion-btn:focus-visible { outline: 3px solid var(--brand-deep); outline-offset: 2px; }
       .accordion-chevron { display: inline-block; transition: transform 0.25s; }
       .accordion-chevron.open { transform: rotate(180deg); }
-      .matrix-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 10px; }
+      .matrix-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; border: 1px solid var(--paper-border); border-radius: 6px; background: #fff; }
       .matrix-table { border-collapse: collapse; font-size: 12px; }
       .matrix-table th {
-        background: #f1f5f9; padding: 5px 8px; font-weight: 600;
-        white-space: nowrap; position: sticky; top: 0; z-index: 1; border-bottom: 2px solid #e5e7eb;
+        background: var(--soft); padding: 5px 8px; font-weight: 600; color: var(--brand-deep);
+        white-space: nowrap; position: sticky; top: 0; z-index: 1; border-bottom: 2px solid var(--paper-border);
       }
-      .matrix-table td { padding: 4px 7px; text-align: center; border: 1px solid #e5e7eb; min-width: 36px; }
+      .matrix-table td { padding: 4px 7px; text-align: center; border: 1px solid var(--paper-border); min-width: 36px; }
       .matrix-row-header {
-        background: #f1f5f9 !important; font-weight: 600; text-align: left !important;
+        background: var(--soft) !important; font-weight: 600; text-align: left !important; color: var(--brand-deep);
         white-space: nowrap; position: sticky; left: 0; z-index: 2; min-width: 150px;
         max-width: 220px; overflow: hidden; text-overflow: ellipsis;
       }
       .matrix-col-header { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
-      .analysis-subsection { margin-top: 22px; border-top: 1px solid #f1f5f9; padding-top: 18px; }
-      .pdf-btn-row { margin-top: 28px; border-top: 1px solid #e5e7eb; padding-top: 20px; }
+      .analysis-subsection { margin-top: 22px; border-top: 1px solid var(--paper-border); padding-top: 18px; }
+      .pdf-btn-row { margin-top: 28px; border-top: 1px solid var(--paper-border); padding-top: 20px; }
       button.danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
       button.danger:hover { background: #fecaca; }
       button.tab-inactive { opacity: 0.45; }
-      .account-section { border-top: 1px solid #e5e7eb; margin-top: 14px; padding-top: 14px; }
-      #account-footer:not(.hidden) { display: flex; }
-      #delete-confirm-box:not(.hidden) { display: flex; }
+      .account-section { border-top: 1px solid var(--paper-border); margin-top: 14px; padding-top: 14px; }
       @media (max-width: 640px) {
         h1 { font-size: 1.3rem; }
         .page { padding: 14px 12px 40px; }
+        .page > h1 { margin: -14px -12px 18px; padding: 12px 16px; font-size: 1.15rem; }
         .panel { padding: 16px; }
         .chart { min-height: 320px; }
+      }
+
+      /* ---------- Admin top-level tabs ----------
+         Four-section pagination of the dashboard: Study access (1) → Study
+         template (2) → Participants (3) → Analysis (4). Reuses the wizard
+         tab styling so the look is consistent with the create-study wizard. */
+      .admin-tabs {
+        display: flex;
+        gap: 4px;
+        border-bottom: 2px solid var(--paper-border);
+        background: var(--surface);
+        margin: -28px -18px 22px;
+        padding: 4px 18px 0;
+        overflow-x: auto;
+        scrollbar-width: thin;
+      }
+      .admin-tabs.hidden { display: none; }
+      .admin-tab {
+        flex: 0 1 auto;
+        min-width: max-content;
+        width: auto;
+        background: transparent;
+        color: var(--muted);
+        border: none;
+        border-bottom: 3px solid transparent;
+        border-radius: 0;
+        padding: 12px 16px;
+        margin-bottom: -2px;
+        font-weight: 600;
+        font-family: inherit;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        text-align: left;
+      }
+      .admin-tab:hover { color: var(--brand-deep); background: rgba(180, 222, 189, 0.30); }
+      .admin-tab.active {
+        color: var(--brand-deep);
+        border-bottom-color: var(--brand-deep);
+      }
+      .admin-tab:focus-visible {
+        outline: 3px solid var(--brand-deep);
+        outline-offset: -3px;
+      }
+      .admin-tab-num {
+        display: inline-flex;
+        align-items: center; justify-content: center;
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        background: var(--paper-border);
+        color: var(--brand-deep);
+        font-size: 11px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .admin-tab.active .admin-tab-num {
+        background: var(--brand-deep);
+        color: var(--surface);
+      }
+      .admin-tab-label { white-space: nowrap; }
+      @media (max-width: 480px) {
+        .admin-tabs { margin: -14px -12px 16px; padding: 4px 12px 0; }
+        .admin-tab { padding: 12px 10px; font-size: 13px; }
+      }
+      @media (max-width: 380px) {
+        .admin-tab-label { display: none; }
+      }
+
+      /* Disable tabs 2-4 when no study is currently selected */
+      body:has(#selected-study-panel.hidden) #admin-tab-template,
+      body:has(#selected-study-panel.hidden) #admin-tab-participants,
+      body:has(#selected-study-panel.hidden) #admin-tab-analysis {
+        opacity: 0.4;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+
+      /* Per-tab layout. When a tab is active, override the .shell grid and
+         show only the relevant panel(s). */
+      body[data-admin-tab="access"] .shell {
+        display: block;
+        max-width: 880px;
+        margin: 0 auto;
+      }
+      body[data-admin-tab="access"] .shell > main { display: none; }
+      body[data-admin-tab="access"] .shell > aside { width: 100%; }
+
+      body[data-admin-tab="template"] .shell,
+      body[data-admin-tab="participants"] .shell,
+      body[data-admin-tab="analysis"] .shell {
+        display: block;
+      }
+      body[data-admin-tab="template"] .shell > aside,
+      body[data-admin-tab="participants"] .shell > aside,
+      body[data-admin-tab="analysis"] .shell > aside { display: none; }
+
+      /* Within main, show only the panel that belongs to the current tab. */
+      body[data-admin-tab="template"] #directory-panel,
+      body[data-admin-tab="template"] #individual-panel,
+      body[data-admin-tab="template"] #combined-panel { display: none; }
+
+      body[data-admin-tab="participants"] #selected-study-panel,
+      body[data-admin-tab="participants"] #combined-panel { display: none; }
+
+      body[data-admin-tab="analysis"] #selected-study-panel,
+      body[data-admin-tab="analysis"] #directory-panel,
+      body[data-admin-tab="analysis"] #individual-panel { display: none; }
+
+      /* ---------- Create-study wizard (post-login) ----------
+         Horizontal tabs that scroll on narrow screens, with mobile-first
+         responsive behavior: tab labels collapse to numbered chips below 480px. */
+      .wizard-tabs {
+        display: flex;
+        gap: 4px;
+        border-bottom: 2px solid var(--paper-border);
+        overflow-x: auto;
+        margin-bottom: 18px;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+      }
+      .wizard-tab {
+        flex: 1 1 auto;
+        min-width: max-content;
+        width: auto;
+        background: transparent;
+        color: var(--muted);
+        border: none;
+        border-bottom: 3px solid transparent;
+        border-radius: 0;
+        padding: 12px 14px;
+        margin-bottom: -2px;
+        font-weight: 600;
+        font-family: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        text-align: left;
+      }
+      .wizard-tab:hover { color: var(--brand-deep); background: rgba(180, 222, 189, 0.35); }
+      .wizard-tab.active {
+        color: var(--brand-deep);
+        border-bottom-color: var(--brand-deep);
+        background: transparent;
+      }
+      .wizard-tab:focus-visible {
+        outline: 3px solid var(--brand-deep);
+        outline-offset: -3px;
+      }
+      .wizard-tab-num {
+        display: inline-flex;
+        align-items: center; justify-content: center;
+        width: 24px; height: 24px;
+        border-radius: 50%;
+        background: var(--paper-border);
+        color: var(--brand-deep);
+        font-size: 12px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .wizard-tab.active .wizard-tab-num {
+        background: var(--brand-deep);
+        color: var(--surface);
+      }
+      .wizard-tab-label { white-space: nowrap; font-size: 14px; }
+      @media (max-width: 480px) {
+        .wizard-tab { justify-content: center; padding: 12px 10px; }
+        .wizard-tab-label { font-size: 13px; }
+      }
+      @media (max-width: 360px) {
+        .wizard-tab-label { display: none; }
+      }
+
+      .wizard-panel { padding-top: 4px; }
+      .wizard-nav {
+        display: flex;
+        gap: 12px;
+        margin-top: 22px;
+        flex-wrap: wrap;
+      }
+      .wizard-nav button { flex: 1 1 0; min-width: 130px; }
+      .wizard-back[disabled] { visibility: hidden; }
+
+      .checkbox-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+      .checkbox-row input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--brand-deep); }
+
+      .sort-type-fieldset {
+        border: none;
+        padding: 0;
+        margin: 0 0 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .sort-type-fieldset legend {
+        padding: 0 0 8px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .sort-type-option {
+        display: flex;
+        gap: 12px;
+        padding: 14px 16px;
+        border: 2px solid var(--paper-border);
+        border-radius: 6px;
+        cursor: pointer;
+        background: #fff;
+        align-items: flex-start;
+        font-weight: 400;
+        margin: 0;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .sort-type-option:hover { border-color: var(--brand); }
+      .sort-type-option:has(input:checked) {
+        border-color: var(--brand-deep);
+        background: var(--soft);
+      }
+      .sort-type-option:focus-within {
+        outline: 3px solid var(--brand-deep);
+        outline-offset: 2px;
+      }
+      .sort-type-option input[type="radio"] {
+        width: auto;
+        margin: 4px 0 0;
+        accent-color: var(--brand-deep);
+        flex-shrink: 0;
+      }
+      .sort-type-option > span {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        line-height: 1.45;
+        font-size: 14px;
+        color: var(--ink);
+      }
+      .sort-type-option strong {
+        font-weight: 700;
+        color: var(--brand-deep);
+        font-size: 15px;
+      }
+
+      .visually-hidden {
+        position: absolute !important;
+        width: 1px; height: 1px;
+        margin: -1px; padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      /* ---------- Account menu (top-right user widget) ----------
+         The session-panel becomes the dropdown container. It still gets
+         the .hidden class toggled by the auth-state JS, which the layout
+         :has() rules below depend on. */
+      .account-menu {
+        position: absolute;
+        top: 8px;
+        right: 14px;
+        z-index: 50;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .menu-section { position: relative; }
+
+      /* Study-settings trigger: visible only when a study is currently selected */
+      .study-settings-menu { display: none; }
+      body:has(#selected-study-panel:not(.hidden)) #study-settings-menu { display: block; }
+      .study-settings-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #ffffff;
+        color: var(--brand-deep);
+        border: 1px solid var(--paper-border);
+        border-radius: 999px;
+        padding: 7px 14px;
+        width: auto;
+        font-weight: 600;
+        font-family: inherit;
+        font-size: 14px;
+        line-height: 1.2;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+      .study-settings-trigger:hover { background: var(--soft); border-color: var(--brand); }
+      .study-settings-trigger[aria-expanded="true"] {
+        background: var(--soft);
+        border-color: var(--brand-deep);
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08), 0 0 0 3px rgba(44, 62, 80, 0.10);
+      }
+      .study-settings-trigger .settings-icon { color: var(--brand-deep); display: inline-flex; }
+      .study-settings-label { white-space: nowrap; }
+      @media (max-width: 600px) {
+        .study-settings-label { display: none; }
+        .study-settings-trigger { padding: 7px 10px; }
+      }
+
+      .study-settings-popout {
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        min-width: 320px;
+        max-width: 360px;
+        background: #ffffff;
+        border: 1px solid var(--paper-border);
+        border-radius: 10px;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.20);
+        padding: 0;
+        overflow: hidden;
+      }
+      .study-settings-popout::before {
+        content: "";
+        position: absolute;
+        top: -7px;
+        right: 22px;
+        width: 12px; height: 12px;
+        background: #ffffff;
+        border-top: 1px solid var(--paper-border);
+        border-left: 1px solid var(--paper-border);
+        transform: rotate(45deg);
+      }
+      .study-settings-section {
+        padding: 14px 16px;
+      }
+      .study-settings-section + .study-settings-section { border-top: 1px solid var(--paper-border); }
+      .study-settings-section h4 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--brand-deep);
+      }
+      .study-settings-section input,
+      .study-settings-section button { margin-bottom: 0; }
+      .study-settings-section .row { gap: 10px; }
+      .study-settings-section-danger { background: rgba(254, 226, 226, 0.35); }
+      @media (max-width: 480px) {
+        .study-settings-popout {
+          min-width: 280px;
+          max-width: calc(100vw - 28px);
+        }
+      }
+      .account-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: #ffffff;
+        color: var(--brand-deep);
+        border: 1px solid var(--paper-border);
+        border-radius: 999px;
+        padding: 5px 14px 5px 5px;
+        width: auto;
+        font-weight: 600;
+        font-family: inherit;
+        font-size: 14px;
+        line-height: 1.2;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+      .account-trigger:hover {
+        background: var(--soft);
+        border-color: var(--brand);
+      }
+      .account-trigger[aria-expanded="true"] {
+        background: var(--soft);
+        border-color: var(--brand-deep);
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08), 0 0 0 3px rgba(44, 62, 80, 0.10);
+      }
+      .account-avatar {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        background: var(--brand-deep);
+        color: var(--surface);
+        flex-shrink: 0;
+      }
+      .account-email {
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+      }
+      .account-chevron { font-size: 10px; color: var(--muted); margin-left: 2px; }
+      @media (max-width: 480px) {
+        .account-email { display: none; }
+        .account-chevron { display: none; }
+        .account-trigger { padding: 5px; }
+      }
+      .account-dropdown {
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        min-width: 240px;
+        max-width: 320px;
+        background: #ffffff;
+        border: 1px solid var(--paper-border);
+        border-radius: 10px;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.20);
+        padding: 6px 0;
+        overflow: hidden;
+      }
+      /* Small tail/notch pointing up at the trigger */
+      .account-dropdown::before {
+        content: "";
+        position: absolute;
+        top: -7px;
+        right: 22px;
+        width: 12px; height: 12px;
+        background: #ffffff;
+        border-top: 1px solid var(--paper-border);
+        border-left: 1px solid var(--paper-border);
+        transform: rotate(45deg);
+      }
+      .account-item {
+        display: block;
+        width: 100%;
+        background: transparent;
+        color: var(--ink);
+        border: 0;
+        border-radius: 0;
+        padding: 11px 16px;
+        text-align: left;
+        font-weight: 600;
+        font-family: inherit;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .account-item:hover { background: rgba(180, 222, 189, 0.45); color: var(--brand-deep); }
+      .account-item:focus-visible { outline: 3px solid var(--brand-deep); outline-offset: -3px; }
+      .account-item-danger { color: #991b1b; border-top: 1px solid var(--paper-border); }
+      .account-item-danger:hover { background: #fee2e2; color: #991b1b; }
+
+      /* Delete-account confirmation modal */
+      .modal-overlay {
+        position: fixed; inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        display: flex; align-items: center; justify-content: center;
+        padding: 16px;
+        z-index: 200;
+      }
+      .modal-overlay.hidden { display: none; }
+      .modal-card {
+        background: var(--surface);
+        border-radius: 8px;
+        padding: 24px 24px 22px;
+        max-width: 460px;
+        width: 100%;
+        border: 1px solid var(--paper-border);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      }
+      .modal-card h3 { color: #991b1b; margin: 0 0 12px; font-size: 1.2rem; }
+      .modal-card .row { gap: 10px; }
+      .modal-card button[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+      /* When the account pill is visible, reserve space at the right of the
+         page heading so they don't visually collide. */
+      body:has(#session-panel:not(.hidden)) .page > h1 {
+        padding-right: 280px;
+        min-height: 48px;
+      }
+      @media (max-width: 480px) {
+        body:has(#session-panel:not(.hidden)) .page > h1 { padding-right: 70px; }
+      }
+
+      /* ---------- Logged-out auth layout ----------
+         When the session-panel is hidden, the user is unauthenticated.
+         Hide the empty right-hand <main> and center the auth aside as a
+         standalone card. Mobile layout stays untouched (it already collapses
+         to a single column at <=1080px). */
+      body:has(#session-panel.hidden) .shell {
+        display: block;
+        max-width: 440px;
+        margin: clamp(32px, 6vw, 80px) auto 0;
+      }
+      body:has(#session-panel.hidden) .shell > main { display: none; }
+      body:has(#session-panel.hidden) .shell > aside { width: 100%; }
+      /* Centered page header treatment in unauthenticated state */
+
+      /* ---------- Logged-in, no study selected (landscape wizard) ----------
+         When the session is active but no study has been selected yet
+         (#selected-study-panel is still hidden), there is no content for the
+         right <main>. Collapse the shell to a single centered landscape card
+         so the create-study wizard can use real horizontal real estate. */
+      body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell {
+        display: block;
+        max-width: 880px;
+        margin: clamp(20px, 4vw, 48px) auto 0;
+      }
+      body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell > main { display: none; }
+      body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell > aside { width: 100%; }
+
+      /* Inside the landscape state, lay out the wizard's setup tab in two
+         columns on wide enough screens so identifiers/keys live next to one
+         another rather than stacking down a tall narrow column. */
+      @media (min-width: 720px) {
+        body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell #wizard-panel-setup:not(.hidden) {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          column-gap: 24px;
+        }
+        body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell #wizard-panel-setup:not(.hidden) > .wizard-nav,
+        body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell #wizard-panel-setup:not(.hidden) > label[for="new-study-description"],
+        body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell #wizard-panel-setup:not(.hidden) > #new-study-description {
+          grid-column: 1 / -1;
+        }
+        body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell #wizard-panel-content:not(.hidden) {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          column-gap: 24px;
+        }
+        body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell #wizard-panel-content:not(.hidden) > .wizard-nav {
+          grid-column: 1 / -1;
+        }
+        body:has(#session-panel:not(.hidden)):has(#selected-study-panel.hidden) .shell #wizard-panel-content:not(.hidden) > textarea {
+          min-height: 200px;
+        }
       }
     </style>
   </head>
   <body>
     <div class="page">
       <h1>Card Sort Administration</h1>
+
+      <section id="session-panel" class="hidden account-menu" aria-label="Top-right account and study controls">
+        <div class="menu-section study-settings-menu" id="study-settings-menu">
+          <button id="study-settings-trigger" type="button" class="study-settings-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="study-settings-popout">
+            <span class="settings-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19.14 12.94a7.49 7.49 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.46 7.46 0 00-1.62-.94l-.36-2.54a.5.5 0 00-.5-.42h-3.84a.5.5 0 00-.5.42l-.36 2.54c-.59.24-1.13.55-1.62.94l-2.39-.96a.5.5 0 00-.6.22L2.71 8.84a.5.5 0 00.12.64l2.03 1.58a7.49 7.49 0 000 1.88l-2.03 1.58a.5.5 0 00-.12.64l1.92 3.32a.5.5 0 00.6.22l2.39-.96c.49.39 1.03.7 1.62.94l.36 2.54a.5.5 0 00.5.42h3.84a.5.5 0 00.5-.42l.36-2.54c.59-.24 1.13-.55 1.62-.94l2.39.96a.5.5 0 00.6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z"/></svg>
+            </span>
+            <span class="study-settings-label">Study settings</span>
+            <span class="account-chevron" aria-hidden="true">&#9662;</span>
+          </button>
+
+          <div id="study-settings-popout" class="study-settings-popout hidden" role="dialog" aria-labelledby="study-settings-trigger">
+            <div class="study-settings-section">
+              <h4>Trial link</h4>
+              <div class="row" style="margin-bottom:8px;">
+                <div>
+                  <label for="trial-days" style="font-size:13px;">Expires after (days)</label>
+                  <input id="trial-days" type="number" value="7" min="1" max="365" style="margin-bottom:0;" />
+                </div>
+                <div style="display:flex; align-items:flex-end; padding-bottom:14px;">
+                  <label class="checkbox-row" style="font-weight:600; font-size:13px;">
+                    <input id="trial-single-use" type="checkbox" checked /> <span>Single use</span>
+                  </label>
+                </div>
+              </div>
+              <button id="generate-trial-button" class="ghost" type="button">Generate trial link</button>
+              <div id="trial-link-box" class="hidden" style="margin-top:10px;">
+                <label for="trial-link-output" style="font-size:13px;">Trial link</label>
+                <input id="trial-link-output" readonly style="margin-bottom:6px;" />
+                <button id="copy-trial-link-button" class="ghost" type="button">Copy trial link</button>
+              </div>
+              <div id="trial-generate-status" class="status" style="font-size:13px;"></div>
+            </div>
+
+            <div class="study-settings-section study-settings-section-danger" id="delete-study-section">
+              <h4 style="color:#991b1b;">Delete study</h4>
+              <button id="delete-study-button" class="danger inline" type="button">Delete this study</button>
+              <div id="delete-study-confirm-box" class="hidden" style="margin-top:12px;">
+                <p class="tiny" style="color:#991b1b; margin:0 0 10px;">This will permanently delete the study, all participants, all submissions, and all templates. This cannot be undone.</p>
+                <div class="row">
+                  <button id="confirm-delete-study-button" class="danger" type="button">Yes, permanently delete</button>
+                  <button id="cancel-delete-study-button" class="ghost" type="button">Cancel</button>
+                </div>
+                <div id="delete-study-status" class="status"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <button id="account-trigger" type="button" class="account-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="account-dropdown">
+            <span class="account-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 12a5 5 0 100-10 5 5 0 000 10zm0 2c-3.33 0-10 1.67-10 5v3h20v-3c0-3.33-6.67-5-10-5z"/></svg>
+            </span>
+            <span class="account-email" id="session-email"></span>
+            <span class="account-chevron" aria-hidden="true">&#9662;</span>
+          </button>
+
+          <div id="account-dropdown" class="account-dropdown hidden" role="menu" aria-labelledby="account-trigger">
+            <button id="show-change-password-button" class="account-item" type="button" role="menuitem">Change password</button>
+            <div id="change-password-box" class="hidden stack" style="padding:12px 14px 14px; border-top:1px solid var(--paper-border); background:#fff;">
+              <label for="new-password-session">New password</label>
+              <input id="new-password-session" type="password" placeholder="At least 6 characters" />
+              <label for="confirm-password-session">Confirm new password</label>
+              <input id="confirm-password-session" type="password" />
+              <div class="row">
+                <button id="save-new-password-button" type="button">Save</button>
+                <button id="cancel-change-password-button" class="ghost" type="button">Cancel</button>
+              </div>
+              <div id="change-password-status" class="status"></div>
+            </div>
+            <button id="sign-out-button" class="account-item" type="button" role="menuitem">Sign out</button>
+            <button id="delete-account-button" class="account-item account-item-danger" type="button" role="menuitem">Delete my account</button>
+          </div>
+        </div>
+      </section>
+
+      <nav class="admin-tabs hidden" id="admin-tabs" role="tablist" aria-label="Admin sections">
+        <button type="button" role="tab" class="admin-tab active" data-admin-tab="access" aria-selected="true" aria-controls="admin-tabpanel-access" id="admin-tab-access">
+          <span class="admin-tab-num" aria-hidden="true">1</span>
+          <span class="admin-tab-label">Study access</span>
+        </button>
+        <button type="button" role="tab" class="admin-tab" data-admin-tab="template" aria-selected="false" aria-controls="admin-tabpanel-template" id="admin-tab-template" tabindex="-1">
+          <span class="admin-tab-num" aria-hidden="true">2</span>
+          <span class="admin-tab-label">Study template</span>
+        </button>
+        <button type="button" role="tab" class="admin-tab" data-admin-tab="participants" aria-selected="false" aria-controls="admin-tabpanel-participants" id="admin-tab-participants" tabindex="-1">
+          <span class="admin-tab-num" aria-hidden="true">3</span>
+          <span class="admin-tab-label">Participants</span>
+        </button>
+        <button type="button" role="tab" class="admin-tab" data-admin-tab="analysis" aria-selected="false" aria-controls="admin-tabpanel-analysis" id="admin-tab-analysis" tabindex="-1">
+          <span class="admin-tab-num" aria-hidden="true">4</span>
+          <span class="admin-tab-label">Analysis</span>
+        </button>
+      </nav>
       <div class="shell">
         <aside class="panel stack">
           <section id="auth-panel">
@@ -130,7 +815,7 @@
             <div style="text-align:right; margin-top:4px;">
               <button id="forgot-password-button" type="button" class="ghost inline" style="width:auto; font-size:12px; padding:5px 10px;">Forgot password?</button>
             </div>
-            <div id="forgot-password-box" class="hidden stack" style="margin-top:10px; border-top:1px solid #e5e7eb; padding-top:14px;">
+            <div id="forgot-password-box" class="hidden stack" style="margin-top:10px; border-top:1px solid var(--paper-border); padding-top:14px;">
               <p class="tiny" style="margin:0 0 4px;">A reset link will be sent to the email address entered above.</p>
               <button id="send-reset-button" type="button">Send reset link</button>
               <div id="reset-request-status" class="status"></div>
@@ -148,27 +833,8 @@
             <div id="update-password-status" class="status"></div>
           </section>
 
-          <section id="session-panel" class="hidden">
-            <h2>Session</h2>
-            <div class="muted" id="session-email"></div>
-            <button id="sign-out-button" class="ghost" type="button">Sign out</button>
-
-            <div class="account-section">
-              <button id="show-change-password-button" class="ghost" type="button">Change password</button>
-              <div id="change-password-box" class="hidden stack" style="margin-top:12px;">
-                <label for="new-password-session">New password</label>
-                <input id="new-password-session" type="password" placeholder="At least 6 characters" />
-                <label for="confirm-password-session">Confirm new password</label>
-                <input id="confirm-password-session" type="password" />
-                <div class="row">
-                  <button id="save-new-password-button" type="button">Save</button>
-                  <button id="cancel-change-password-button" class="ghost" type="button">Cancel</button>
-                </div>
-                <div id="change-password-status" class="status"></div>
-              </div>
-            </div>
-
-          </section>
+          <!-- #session-panel (study-settings + account dropdown) was relocated to be a direct child of .page,
+               so the top-right controls stay visible on every admin tab. See above the .shell wrapper. -->
 
           <section id="study-setup-panel" class="hidden">
             <h2>Study access</h2>
@@ -178,21 +844,86 @@
             </div>
 
             <div id="create-study-box" class="stack">
-              <label for="new-study-id">Study ID</label>
-              <input id="new-study-id" placeholder="STUDY_2026_A" />
-              <label for="new-study-name">Study name</label>
-              <input id="new-study-name" placeholder="Example card sort" />
-              <label for="new-study-key">Study key</label>
-              <input id="new-study-key" placeholder="Shared administrator key" />
-              <label for="template-name">Template name</label>
-              <input id="template-name" placeholder="Default template" value="Default template" />
-              <label for="new-cards">Cards</label>
-              <textarea id="new-cards" placeholder="One card per line"></textarea>
-              <label for="new-categories">Starting categories</label>
-              <textarea id="new-categories" placeholder="Optional, one per line"></textarea>
-              <label><input id="allow-edit" type="checkbox" checked /> Allow category editing</label>
-              <label><input id="randomize" type="checkbox" /> Randomize card order</label>
-              <button id="create-study-button" type="button">Create study</button>
+              <div class="wizard-tabs" role="tablist" aria-label="Create study steps">
+                <button type="button" role="tab" class="wizard-tab active" id="wizard-tab-setup" data-wizard-tab="setup" aria-selected="true" aria-controls="wizard-panel-setup">
+                  <span class="wizard-tab-num" aria-hidden="true">1</span>
+                  <span class="wizard-tab-label">Session setup</span>
+                </button>
+                <button type="button" role="tab" class="wizard-tab" id="wizard-tab-type" data-wizard-tab="type" aria-selected="false" aria-controls="wizard-panel-type" tabindex="-1">
+                  <span class="wizard-tab-num" aria-hidden="true">2</span>
+                  <span class="wizard-tab-label">Card sort type</span>
+                </button>
+                <button type="button" role="tab" class="wizard-tab" id="wizard-tab-content" data-wizard-tab="content" aria-selected="false" aria-controls="wizard-panel-content" tabindex="-1">
+                  <span class="wizard-tab-num" aria-hidden="true">3</span>
+                  <span class="wizard-tab-label">Cards &amp; categories</span>
+                </button>
+              </div>
+
+              <section class="wizard-panel" id="wizard-panel-setup" role="tabpanel" aria-labelledby="wizard-tab-setup" data-wizard-panel="setup">
+                <label for="new-study-id">Study ID</label>
+                <input id="new-study-id" placeholder="STUDY_2026_A" />
+                <label for="new-study-name">Study name</label>
+                <input id="new-study-name" placeholder="Example card sort" />
+                <label for="new-study-description">Study description
+                  <span class="muted tiny" style="font-weight:400;">— shown to participants in a pop-up before they begin the sort</span>
+                </label>
+                <textarea id="new-study-description" placeholder="A short welcome message and any instructions participants should read before starting."></textarea>
+                <label for="new-study-key">Study key</label>
+                <input id="new-study-key" placeholder="Shared administrator key" />
+                <label for="template-name">Template name</label>
+                <input id="template-name" placeholder="Default template" value="Default template" />
+                <label class="checkbox-row"><input id="randomize" type="checkbox" /> <span>Randomize card order per participant</span></label>
+                <div class="wizard-nav">
+                  <button type="button" class="ghost wizard-back" data-target="" disabled aria-hidden="true">Back</button>
+                  <button type="button" class="wizard-next" data-target="type">Next: Card sort type &rarr;</button>
+                </div>
+              </section>
+
+              <section class="wizard-panel hidden" id="wizard-panel-type" role="tabpanel" aria-labelledby="wizard-tab-type" data-wizard-panel="type">
+                <fieldset class="sort-type-fieldset">
+                  <legend class="muted tiny">Choose how participants will sort the cards</legend>
+                  <label class="sort-type-option">
+                    <input type="radio" name="new-sort-type" value="open" checked />
+                    <span>
+                      <strong>Open</strong>
+                      Participants create their own categories from scratch. Best for discovering new information architectures.
+                    </span>
+                  </label>
+                  <label class="sort-type-option">
+                    <input type="radio" name="new-sort-type" value="hybrid" />
+                    <span>
+                      <strong>Hybrid</strong>
+                      Starter categories are provided, and participants may add their own. Refines an existing structure while leaving room for discovery.
+                    </span>
+                  </label>
+                  <label class="sort-type-option">
+                    <input type="radio" name="new-sort-type" value="closed" />
+                    <span>
+                      <strong>Closed</strong>
+                      Participants sort cards into a fixed set of predefined categories. Best for validating an existing structure.
+                    </span>
+                  </label>
+                </fieldset>
+                <!-- Kept for backend compatibility; auto-driven by the radio above (open/hybrid -> checked, closed -> unchecked). -->
+                <label class="visually-hidden"><input id="allow-edit" type="checkbox" checked /> Allow category editing</label>
+                <div class="wizard-nav">
+                  <button type="button" class="ghost wizard-back" data-target="setup">&larr; Back</button>
+                  <button type="button" class="wizard-next" data-target="content">Next: Cards &amp; categories &rarr;</button>
+                </div>
+              </section>
+
+              <section class="wizard-panel hidden" id="wizard-panel-content" role="tabpanel" aria-labelledby="wizard-tab-content" data-wizard-panel="content">
+                <label for="new-cards">Cards</label>
+                <textarea id="new-cards" placeholder="One card per line"></textarea>
+                <label for="new-categories">Starting categories
+                  <span class="muted tiny" style="font-weight:400;">— required for hybrid and closed sorts; optional for open sorts</span>
+                </label>
+                <textarea id="new-categories" placeholder="Optional, one per line"></textarea>
+                <div class="wizard-nav">
+                  <button type="button" class="ghost wizard-back" data-target="type">&larr; Back</button>
+                  <button id="create-study-button" type="button">Create study</button>
+                </div>
+              </section>
             </div>
 
             <div id="join-study-box" class="stack hidden">
@@ -224,28 +955,6 @@
                 <button id="copy-link-button" class="ghost" type="button">Copy participant link</button>
               </div>
             </div>
-            <div style="margin-top:16px; padding:14px; background:#f8fafc; border-radius:12px; border:1px solid #e5e7eb;">
-              <h3 style="margin:0 0 10px; font-size:14px;">Generate trial link</h3>
-              <div class="row" style="margin-bottom:10px;">
-                <div>
-                  <label for="trial-days" style="font-size:13px;">Expires after (days)</label>
-                  <input id="trial-days" type="number" value="7" min="1" max="365" style="margin-bottom:0;" />
-                </div>
-                <div style="display:flex; align-items:flex-end; padding-bottom:14px;">
-                  <label style="font-weight:normal; font-size:13px; display:flex; align-items:center; gap:8px; margin:0;">
-                    <input id="trial-single-use" type="checkbox" checked style="width:auto; margin:0;" />
-                    Single use
-                  </label>
-                </div>
-              </div>
-              <button id="generate-trial-button" class="ghost" type="button">Generate trial link</button>
-              <div id="trial-link-box" class="hidden" style="margin-top:10px;">
-                <label for="trial-link-output" style="font-size:13px;">Trial link</label>
-                <input id="trial-link-output" readonly style="margin-bottom:6px;" />
-                <button id="copy-trial-link-button" class="ghost" type="button">Copy trial link</button>
-              </div>
-              <div id="trial-generate-status" class="status" style="font-size:13px;"></div>
-            </div>
             <div class="subgrid" style="margin-top: 18px;">
               <div>
                 <h3>Update study template</h3>
@@ -266,21 +975,9 @@
                 <p class="tiny">All attached admins can manage this study, review participant data, and generate combined Sankey diagrams.</p>
               </div>
             </div>
-            <div style="margin-top:20px; border-top:1px solid #e5e7eb; padding-top:20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+            <div style="margin-top:20px; border-top:1px solid var(--paper-border); padding-top:20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
               <button id="toggle-study-active-button" class="ghost inline" type="button">Close study</button>
               <span id="study-active-status" class="tiny"></span>
-            </div>
-
-            <div id="delete-study-section" style="margin-top:16px;">
-              <button id="delete-study-button" class="danger inline" type="button">Delete this study</button>
-              <div id="delete-study-confirm-box" class="hidden" style="margin-top:12px;">
-                <p class="tiny" style="color:#991b1b; margin:0 0 10px;">This will permanently delete the study, all participants, all submissions, and all templates. This cannot be undone.</p>
-                <div class="row">
-                  <button id="confirm-delete-study-button" class="danger" type="button">Yes, permanently delete</button>
-                  <button id="cancel-delete-study-button" class="ghost" type="button">Cancel</button>
-                </div>
-                <div id="delete-study-status" class="status"></div>
-              </div>
             </div>
           </section>
 
@@ -387,18 +1084,25 @@ student support=Support"></textarea>
         </main>
       </div>
 
-      <footer id="account-footer" class="hidden" style="margin-top:40px; padding-top:20px; border-top:1px solid #e5e7eb; align-items:center; gap:16px; flex-wrap:wrap;">
-        <button id="delete-account-button" class="danger inline" type="button">Delete my account</button>
-        <div id="delete-confirm-box" class="hidden" style="align-items:center; gap:10px; flex-wrap:wrap;">
-          <span class="tiny" style="color:#991b1b;">This will delete your profile and remove you from all studies. Your sign-in credentials will be deactivated on next sign-out. This cannot be undone.</span>
-          <button id="confirm-delete-button" class="danger inline" type="button">Yes, delete</button>
-          <button id="cancel-delete-button" class="ghost inline" type="button">Cancel</button>
-        </div>
-        <div id="delete-account-status" class="status" style="font-size:13px;"></div>
-      </footer>
     </div>
 
-    <footer style="text-align:center; font-size:12px; color:#94a3b8; padding:24px 16px 32px;">&copy; 2026 Thomas Macaluso. All rights reserved.</footer>
+    <div id="delete-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title" aria-describedby="delete-modal-desc">
+      <div class="modal-card" role="document">
+        <h3 id="delete-modal-title">Delete account</h3>
+        <p id="delete-modal-desc" class="muted" style="font-size:14px; line-height:1.55; margin:0 0 16px;">
+          This will delete your profile and remove you from all studies. Your sign-in credentials will be deactivated on next sign-out. <strong>This cannot be undone.</strong>
+        </p>
+        <label for="delete-confirm-input" style="font-size:14px;">Type <strong>delete</strong> to confirm</label>
+        <input id="delete-confirm-input" type="text" placeholder="delete" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" />
+        <div id="delete-account-status" class="status" style="font-size:13px;"></div>
+        <div class="row" style="margin-top:6px;">
+          <button id="cancel-delete-button" class="ghost" type="button">Cancel</button>
+          <button id="confirm-delete-button" class="danger" type="button" disabled>Delete account</button>
+        </div>
+      </div>
+    </div>
+
+    <footer style="text-align:center; font-size:12px; color:var(--surface); padding:24px 16px 32px; opacity:0.85;">&copy; 2026 Thomas Macaluso. All rights reserved.</footer>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="common-scripts.js"></script>
@@ -480,6 +1184,110 @@ student support=Support"></textarea>
       });
       document.getElementById('sign-out-button').addEventListener('click', signOut);
 
+      // ---- Admin top-level tabs ----
+      (function setupAdminTabs() {
+        const tabs = document.querySelectorAll('#admin-tabs .admin-tab');
+        if (!tabs.length) return;
+
+        function setTab(name) {
+          if (!name) return;
+          // Block navigation to tabs 2-4 when no study selected.
+          const studyTabs = ['template', 'participants', 'analysis'];
+          const studyPanel = document.getElementById('selected-study-panel');
+          if (studyTabs.includes(name) && studyPanel && studyPanel.classList.contains('hidden')) {
+            name = 'access';
+          }
+          document.body.dataset.adminTab = name;
+          tabs.forEach((t) => {
+            const active = t.dataset.adminTab === name;
+            t.classList.toggle('active', active);
+            t.setAttribute('aria-selected', active ? 'true' : 'false');
+            t.setAttribute('tabindex', active ? '0' : '-1');
+          });
+        }
+
+        tabs.forEach((tab) => {
+          tab.addEventListener('click', () => setTab(tab.dataset.adminTab));
+        });
+
+        // Initial state: default to access until JS resolves auth state.
+        setTab('access');
+        // Expose for handleAuthChange / renderSelectedStudy to call.
+        window.__setAdminTab = setTab;
+      })();
+
+      // ---- Top-right popouts (account dropdown + study settings) ----
+      (function setupTopRightMenus() {
+        const accountTrigger = document.getElementById('account-trigger');
+        const accountDropdown = document.getElementById('account-dropdown');
+        const changePwdBox = document.getElementById('change-password-box');
+
+        const studyTrigger = document.getElementById('study-settings-trigger');
+        const studyPopout = document.getElementById('study-settings-popout');
+        const deleteStudyConfirm = document.getElementById('delete-study-confirm-box');
+
+        function setAccountOpen(open) {
+          if (!accountDropdown || !accountTrigger) return;
+          accountDropdown.classList.toggle('hidden', !open);
+          accountTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+          if (!open && changePwdBox) changePwdBox.classList.add('hidden');
+        }
+        function setStudyOpen(open) {
+          if (!studyPopout || !studyTrigger) return;
+          studyPopout.classList.toggle('hidden', !open);
+          studyTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+          if (!open && deleteStudyConfirm) deleteStudyConfirm.classList.add('hidden');
+        }
+
+        if (accountTrigger) {
+          accountTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = accountTrigger.getAttribute('aria-expanded') === 'true';
+            setAccountOpen(!isOpen);
+            if (!isOpen) setStudyOpen(false);
+          });
+        }
+        if (studyTrigger) {
+          studyTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = studyTrigger.getAttribute('aria-expanded') === 'true';
+            setStudyOpen(!isOpen);
+            if (!isOpen) setAccountOpen(false);
+          });
+        }
+
+        // Click outside closes both
+        document.addEventListener('click', (e) => {
+          if (accountDropdown && !accountDropdown.classList.contains('hidden')) {
+            if (!accountDropdown.contains(e.target) && !accountTrigger.contains(e.target)) {
+              setAccountOpen(false);
+            }
+          }
+          if (studyPopout && !studyPopout.classList.contains('hidden')) {
+            if (!studyPopout.contains(e.target) && !studyTrigger.contains(e.target)) {
+              setStudyOpen(false);
+            }
+          }
+        });
+
+        // Escape closes whichever is open
+        document.addEventListener('keydown', (e) => {
+          if (e.key !== 'Escape') return;
+          if (accountTrigger && accountTrigger.getAttribute('aria-expanded') === 'true') {
+            setAccountOpen(false); accountTrigger.focus();
+          } else if (studyTrigger && studyTrigger.getAttribute('aria-expanded') === 'true') {
+            setStudyOpen(false); studyTrigger.focus();
+          }
+        });
+
+        // Sign out closes the menu before the auth state changes (cosmetic).
+        const signOutBtn = document.getElementById('sign-out-button');
+        if (signOutBtn) signOutBtn.addEventListener('click', () => setAccountOpen(false));
+
+        // Expose for delete-study success path
+        window.__closeStudySettings = () => setStudyOpen(false);
+      })();
+
       document.getElementById('forgot-password-button').addEventListener('click', () => {
         document.getElementById('forgot-password-box').classList.toggle('hidden');
       });
@@ -491,23 +1299,126 @@ student support=Support"></textarea>
 
       document.getElementById('show-change-password-button').addEventListener('click', () => {
         document.getElementById('change-password-box').classList.toggle('hidden');
-        document.getElementById('delete-confirm-box').classList.add('hidden');
       });
       document.getElementById('cancel-change-password-button').addEventListener('click', () => {
         document.getElementById('change-password-box').classList.add('hidden');
       });
       document.getElementById('save-new-password-button').addEventListener('click', saveNewPassword);
 
-      document.getElementById('delete-account-button').addEventListener('click', () => {
-        document.getElementById('delete-confirm-box').classList.toggle('hidden');
-        document.getElementById('change-password-box').classList.add('hidden');
-      });
-      document.getElementById('cancel-delete-button').addEventListener('click', () => {
-        document.getElementById('delete-confirm-box').classList.add('hidden');
-      });
-      document.getElementById('confirm-delete-button').addEventListener('click', deleteMyAccount);
+      // ---- Delete account modal ----
+      (function setupDeleteModal() {
+        const trigger = document.getElementById('delete-account-button');
+        const modal = document.getElementById('delete-modal');
+        const input = document.getElementById('delete-confirm-input');
+        const confirmBtn = document.getElementById('confirm-delete-button');
+        const cancelBtn = document.getElementById('cancel-delete-button');
+        const accountTrigger = document.getElementById('account-trigger');
+        const accountDropdown = document.getElementById('account-dropdown');
+        if (!trigger || !modal || !input || !confirmBtn || !cancelBtn) return;
+
+        function openModal() {
+          modal.classList.remove('hidden');
+          input.value = '';
+          confirmBtn.disabled = true;
+          // Close the account dropdown so it doesn't sit above the modal.
+          if (accountDropdown) accountDropdown.classList.add('hidden');
+          if (accountTrigger) accountTrigger.setAttribute('aria-expanded', 'false');
+          // Clear any prior status message
+          const status = document.getElementById('delete-account-status');
+          if (status) { status.textContent = ''; status.className = 'status'; }
+          setTimeout(() => input.focus(), 0);
+        }
+        function closeModal() {
+          modal.classList.add('hidden');
+          input.value = '';
+          confirmBtn.disabled = true;
+          if (accountTrigger) accountTrigger.focus();
+        }
+
+        trigger.addEventListener('click', openModal);
+        cancelBtn.addEventListener('click', closeModal);
+
+        input.addEventListener('input', () => {
+          confirmBtn.disabled = input.value.trim().toLowerCase() !== 'delete';
+        });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !confirmBtn.disabled) {
+            e.preventDefault();
+            confirmBtn.click();
+          }
+        });
+
+        confirmBtn.addEventListener('click', deleteMyAccount);
+
+        // Escape closes modal
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+        });
+        // Click on backdrop (outside the card) closes
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) closeModal();
+        });
+
+        // Expose close so deleteMyAccount() can dismiss the modal once
+        // the deletion is in flight.
+        window.__closeDeleteModal = closeModal;
+      })();
       document.getElementById('create-study-button').addEventListener('click', createStudy);
       document.getElementById('join-study-button').addEventListener('click', joinStudy);
+
+      // ---- Create-study wizard tab navigation ----
+      (function setupCreateStudyWizard() {
+        const wizardTabs = document.querySelectorAll('#create-study-box .wizard-tab');
+        const wizardPanels = document.querySelectorAll('#create-study-box .wizard-panel');
+
+        function showWizardTab(name) {
+          if (!name) return;
+          wizardTabs.forEach((t) => {
+            const isActive = t.dataset.wizardTab === name;
+            t.classList.toggle('active', isActive);
+            t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            t.setAttribute('tabindex', isActive ? '0' : '-1');
+          });
+          wizardPanels.forEach((p) => {
+            p.classList.toggle('hidden', p.dataset.wizardPanel !== name);
+          });
+        }
+
+        wizardTabs.forEach((tab) => {
+          tab.addEventListener('click', () => showWizardTab(tab.dataset.wizardTab));
+        });
+        document.querySelectorAll('#create-study-box .wizard-next, #create-study-box .wizard-back').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const target = btn.dataset.target;
+            if (target) {
+              showWizardTab(target);
+              const panel = document.querySelector(`#create-study-box [data-wizard-panel="${target}"]`);
+              if (panel) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+          });
+        });
+
+        // Sort-type radio drives the existing #allow-edit checkbox so backend
+        // logic (createStudy + saveTemplate) keeps working without changes.
+        // open + hybrid -> allow-edit checked (participants can add categories)
+        // closed -> allow-edit unchecked (fixed category set)
+        document.querySelectorAll('#create-study-box input[name="new-sort-type"]').forEach((radio) => {
+          radio.addEventListener('change', () => {
+            if (!radio.checked) return;
+            const allowEdit = document.getElementById('allow-edit');
+            if (allowEdit) allowEdit.checked = (radio.value !== 'closed');
+          });
+        });
+
+        // Expose a reset hook for the existing createStudy() success cleanup.
+        window.__resetCreateStudyWizard = function () {
+          showWizardTab('setup');
+          const desc = document.getElementById('new-study-description');
+          if (desc) desc.value = '';
+          const openRadio = document.querySelector('#create-study-box input[name="new-sort-type"][value="open"]');
+          if (openRadio) openRadio.checked = true;
+        };
+      })();
       document.getElementById('save-template-button').addEventListener('click', saveTemplate);
       document.getElementById('copy-link-button').addEventListener('click', async () => {
         await navigator.clipboard.writeText(document.getElementById('participant-link').value);
@@ -616,8 +1527,13 @@ student support=Support"></textarea>
 
       async function deleteMyAccount() {
         if (!supabaseClient || !sessionUser) return;
+        // Final guard: the modal input must equal "delete" before this runs.
+        const confirmInput = document.getElementById('delete-confirm-input');
+        if (!confirmInput || confirmInput.value.trim().toLowerCase() !== 'delete') {
+          setStatus('delete-account-status', 'Type "delete" to confirm.', 'error');
+          return;
+        }
         setStatus('delete-account-status', 'Deleting account data...', '');
-        document.getElementById('delete-confirm-box').classList.add('hidden');
 
         const userId = sessionUser.id;
 
@@ -754,6 +1670,7 @@ student support=Support"></textarea>
         document.getElementById('new-categories').value = '';
         document.getElementById('allow-edit').checked = true;
         document.getElementById('randomize').checked = false;
+        if (typeof window.__resetCreateStudyWizard === 'function') window.__resetCreateStudyWizard();
         await loadStudies();
         const created = Array.isArray(data) ? data[0] : data;
         if (created?.study_uuid) await selectStudy(created.study_uuid);
@@ -877,6 +1794,8 @@ student support=Support"></textarea>
         directoryPanel.classList.remove('hidden');
         individualPanel.classList.remove('hidden');
         combinedPanel.classList.remove('hidden');
+        // Switch to the Study template tab now that a study is selected.
+        if (typeof window.__setAdminTab === 'function') window.__setAdminTab('template');
 
         document.getElementById('selected-study-title').textContent = selectedStudy.study_name;
         document.getElementById('selected-study-subtitle').textContent = `Study ID: ${selectedStudy.study_id}`;
@@ -1210,7 +2129,9 @@ student support=Support"></textarea>
           selectedStudyAdmins = [];
           participantDirectory = [];
           selectedSubmissionIds = new Set();
-          document.getElementById('account-footer').classList.add('hidden');
+          // Hide the admin tabs strip and clear tab state when logged out.
+          document.getElementById('admin-tabs').classList.add('hidden');
+          document.body.removeAttribute('data-admin-tab');
           return;
         }
 
@@ -1218,7 +2139,9 @@ student support=Support"></textarea>
         sessionPanel.classList.remove('hidden');
         studySetupPanel.classList.remove('hidden');
         studyListPanel.classList.remove('hidden');
-        document.getElementById('account-footer').classList.remove('hidden');
+        // Reveal the admin tabs and default to the Study access tab.
+        document.getElementById('admin-tabs').classList.remove('hidden');
+        if (typeof window.__setAdminTab === 'function') window.__setAdminTab('access');
         document.getElementById('session-email').textContent = sessionUser.email;
         // Always restore to create-study tab on login/session restore
         document.getElementById('create-study-box').classList.remove('hidden');
