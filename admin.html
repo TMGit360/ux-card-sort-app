@@ -1478,7 +1478,19 @@ student support=Support"></textarea>
 
       async function signOut() {
         if (!supabaseClient) return;
-        await supabaseClient.auth.signOut();
+        // scope: 'local' clears the session from this browser without requiring a
+        // successful round-trip to the server's logout endpoint. The default
+        // 'global' scope can be blocked or stalled by privacy browsers (e.g. Brave
+        // Shields), leaving the user stuck signed in. Local scope avoids that.
+        try {
+          const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
+          if (error) console.warn('signOut error:', error.message);
+        } catch (err) {
+          console.warn('signOut failed:', err);
+        }
+        // Force the UI to the signed-out state in case the SIGNED_OUT event did
+        // not fire (e.g. the network logout request was blocked).
+        await handleAuthChange(null);
       }
 
       async function sendPasswordReset() {
@@ -1542,7 +1554,7 @@ student support=Support"></textarea>
         await supabaseClient.from('admin_profiles').delete().eq('user_id', userId);
 
         setStatus('delete-account-status', 'Profile data removed. Signing out — your login credentials will be inactive. Contact the app owner to fully remove the authentication record.', 'success');
-        setTimeout(() => supabaseClient.auth.signOut(), 3000);
+        setTimeout(signOut, 3000);
       }
 
       async function deleteStudy() {
