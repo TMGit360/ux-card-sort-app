@@ -150,6 +150,10 @@
       button:focus-visible { outline: 3px solid var(--brand-deep); outline-offset: 2px; }
       button.secondary { background: var(--brand); color: #fff; }
       button.secondary:hover { background: var(--brand-dark); }
+      /* Emphasis ring for the Create-account button when arriving via admin.html#create */
+      button.auth-emphasis {
+        box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--brand-deep);
+      }
       button.ghost { background: var(--soft); color: var(--brand-deep); }
       button.ghost:hover { background: #a4d2ad; }
       button.inline { width: auto; }
@@ -939,7 +943,7 @@
       <div class="shell">
         <aside class="panel stack">
           <section id="auth-panel">
-            <h2>Admin sign in</h2>
+            <h2 id="auth-heading">Admin sign in</h2>
             <label for="auth-email">Admin email</label>
             <input id="auth-email" type="email" placeholder="name@example.com" />
             <label for="auth-password">Password</label>
@@ -2442,6 +2446,22 @@ student support=Support"></textarea>
         }
       }
 
+      // When the page is opened as admin.html#create (the "Create account" CTA on
+      // the home page), emphasize account creation: relabel the panel, highlight
+      // the Create-account button, and focus the email field.
+      function applyAuthIntent() {
+        const wantsCreate = location.hash === '#create' || location.hash === '#signup';
+        const panel = document.getElementById('auth-panel');
+        if (!wantsCreate || !panel || panel.classList.contains('hidden')) return;
+        const heading = document.getElementById('auth-heading');
+        if (heading) heading.textContent = 'Create your admin account';
+        const signUpBtn = document.getElementById('sign-up-button');
+        if (signUpBtn) signUpBtn.classList.add('auth-emphasis');
+        setStatus('auth-status', 'New here? Enter your email and a password, then click Create account.', '');
+        const email = document.getElementById('auth-email');
+        if (email) email.focus();
+      }
+
       async function boot() {
         if (!supabaseClient) {
           setStatus('auth-status', 'Configure supabase-config.js before using admin features.', 'error');
@@ -2455,6 +2475,7 @@ student support=Support"></textarea>
         }
 
         await handleAuthChange(data.session);
+        applyAuthIntent();
 
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
           if (event === 'INITIAL_SESSION') return;
