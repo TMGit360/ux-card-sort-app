@@ -19,11 +19,17 @@
         --paper-border: #d8d2b4;
         --paper-edge: #c7c0a0;
       }
+      /* Match the root sizing scale used by index.html (styles.css) so both
+         pages render at the same size. Without this, admin.html fell back to the
+         browser default 16px and looked ~6% smaller everywhere. */
+      html { font-size: 17px; }
+      @media (max-width: 600px) { html { font-size: 16px; } }
       body {
         margin: 0;
         font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
         background: var(--bg);
         color: var(--ink);
+        line-height: 1.55;
       }
       h1, h2, h3, h4 {
         font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
@@ -42,18 +48,74 @@
         padding: 22px;
       }
       h1, h2, h3, h4 { margin-top: 0; }
-      /* Top-of-page bar styled to match the index.html navbar */
-      .page > h1 {
+      /* Top navigation bar — mirrors the index.html navbar so admins can get
+         back to Home and the other pages. Spans the full page width. */
+      .site-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px 24px;
         background: var(--surface);
-        margin: -24px -18px 28px;
-        padding: 14px 28px;
+        margin: -24px -18px 0;
+        padding: 12px 28px;
         border-bottom: 1px solid var(--paper-border);
         box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+      }
+      .site-brand {
+        font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
         font-size: 1.35rem;
         font-weight: 700;
         letter-spacing: -0.01em;
         color: var(--brand-deep);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .site-brand:hover { color: var(--brand-dark); }
+      .site-nav-links {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      /* Link treatment mirrors index.html's navbar (styles.css): plain links,
+         underline on hover and for the current page. */
+      .site-nav-links a {
+        color: var(--ink);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
         line-height: 1.2;
+        padding: 8px 14px;
+        transition: color 0.15s ease;
+      }
+      .site-nav-links a:hover { color: var(--brand-deep); text-decoration: underline; }
+      .site-nav-links a[aria-current="page"] { color: var(--brand-deep); text-decoration: underline; }
+
+      /* Breadcrumb + page-title row. Right padding reserves space for the
+         absolutely-positioned account pill so they never overlap. */
+      .page-head {
+        margin: 18px 0 24px;
+        padding-right: 280px;
+      }
+      .breadcrumb { font-size: 13px; margin-bottom: 6px; }
+      .breadcrumb ol {
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+      }
+      .breadcrumb li { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+      .breadcrumb li + li::before { content: "/"; color: var(--paper-edge); }
+      .breadcrumb a { color: var(--brand-dark); text-decoration: none; font-weight: 600; }
+      .breadcrumb a:hover { text-decoration: underline; }
+      .breadcrumb li[aria-current="page"] { color: var(--brand-deep); font-weight: 700; }
+      .page-head h1 { font-size: 1.5rem; margin: 0; line-height: 1.2; }
+      @media (max-width: 700px) {
+        .page-head { padding-right: 0; }
       }
       h2 { font-size: 1.2rem; }
       label { display: block; font-weight: 700; margin-bottom: 8px; color: var(--brand-deep); }
@@ -429,7 +491,9 @@
          :has() rules below depend on. */
       .account-menu {
         position: absolute;
-        top: 8px;
+        /* Sits on the breadcrumb/title row, below the site nav, so it never
+           overlaps the navigation links on the right of the top bar. */
+        top: 72px;
         right: 14px;
         z-index: 50;
         background: transparent;
@@ -440,6 +504,11 @@
         align-items: center;
         gap: 10px;
       }
+      /* .account-menu is defined after the global .hidden rule, so without this
+         the equal-specificity display:flex above would override display:none and
+         leave the account pill (Sign out / Delete my account) visible when signed
+         out. This two-class selector beats .account-menu so .hidden wins. */
+      .account-menu.hidden { display: none; }
       .menu-section { position: relative; }
 
       /* Study-settings trigger: visible only when a study is currently selected */
@@ -702,7 +771,25 @@
   </head>
   <body>
     <div class="page">
-      <h1>Card Sort Administration</h1>
+      <header class="site-nav">
+        <a class="site-brand" href="index.html#home">Card Sort Tool</a>
+        <nav class="site-nav-links" aria-label="Primary">
+          <a href="index.html#home">Home</a>
+          <a href="admin.html" aria-current="page">Admin</a>
+          <a href="trial.html">Participant Login</a>
+          <a href="index.html#about">About</a>
+        </nav>
+      </header>
+
+      <div class="page-head">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <ol>
+            <li><a href="index.html#home">Home</a></li>
+            <li aria-current="page">Admin</li>
+          </ol>
+        </nav>
+        <h1>Card Sort Administration</h1>
+      </div>
 
       <section id="session-panel" class="hidden account-menu" aria-label="Top-right account and study controls">
         <div class="menu-section study-settings-menu" id="study-settings-menu">
@@ -720,7 +807,7 @@
               <div class="row" style="margin-bottom:8px;">
                 <div>
                   <label for="trial-days" style="font-size:13px;">Expires after (days)</label>
-                  <input id="trial-days" type="number" value="7" min="1" max="365" style="margin-bottom:0;" />
+                  <input id="trial-days" type="number" value="90" min="1" max="365" style="margin-bottom:0;" />
                 </div>
                 <div style="display:flex; align-items:flex-end; padding-bottom:14px;">
                   <label class="checkbox-row" style="font-weight:600; font-size:13px;">
