@@ -201,6 +201,38 @@
       .accordion-btn:focus-visible { outline: 3px solid var(--brand-deep); outline-offset: 2px; }
       .accordion-chevron { display: inline-block; transition: transform 0.25s; }
       .accordion-chevron.open { transform: rotate(180deg); }
+      /* Analysis sub-tabs — let each visualization take the full panel width
+         (one at a time) so charts and matrices are large and readable, and so
+         the advanced views are reachable right at the top of the panel. */
+      .analysis-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 16px 0 22px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--paper-border);
+      }
+      .analysis-tab {
+        width: auto;
+        flex: 0 0 auto;
+        background: #fff;
+        color: var(--brand-deep);
+        border: 1px solid var(--paper-border);
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-weight: 600;
+        font-size: 14px;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      }
+      .analysis-tab:hover { background: var(--soft); border-color: var(--brand); }
+      .analysis-tab.active { background: var(--brand-deep); border-color: var(--brand-deep); color: var(--surface); }
+      .analysis-tab:focus-visible { outline: 3px solid var(--brand-deep); outline-offset: 2px; }
+      .analysis-panel { display: none; }
+      .analysis-panel.active { display: block; }
+      /* PDF capture forces every panel visible so all six render full-size. */
+      .analysis-show-all .analysis-panel { display: block !important; margin-bottom: 28px; }
       .matrix-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; border: 1px solid var(--paper-border); border-radius: 6px; background: #fff; }
       .matrix-table { border-collapse: collapse; font-size: 12px; }
       .matrix-table th {
@@ -681,6 +713,29 @@
       .account-item:focus-visible { outline: 3px solid var(--brand-deep); outline-offset: -3px; }
       .account-item-danger { color: #991b1b; border-top: 1px solid var(--paper-border); }
       .account-item-danger:hover { background: #fee2e2; color: #991b1b; }
+      /* "My Studies" quick-access list inside the account dropdown. */
+      .account-item-parent { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .account-item-parent .account-item-caret { font-size: 10px; color: var(--muted); transition: transform 0.15s ease; }
+      .account-item-parent[aria-expanded="true"] .account-item-caret { transform: rotate(180deg); }
+      .my-studies-box { border-top: 1px solid var(--paper-border); background: #fff; }
+      .my-studies-list { max-height: 240px; overflow-y: auto; padding: 4px 0; }
+      .my-study-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding: 9px 16px 9px 22px;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .my-study-item:hover { background: rgba(180, 222, 189, 0.45); }
+      .my-study-item:focus-visible { outline: 3px solid var(--brand-deep); outline-offset: -3px; }
+      .my-study-item.active { background: var(--soft); }
+      .my-study-item .ms-name { display: block; font-weight: 700; font-size: 14px; color: var(--brand-deep); }
+      .my-study-item .ms-meta { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+      .my-studies-empty { padding: 12px 22px; font-size: 13px; color: var(--muted); }
 
       /* Delete-account confirmation modal */
       .modal-overlay {
@@ -776,7 +831,6 @@
         <nav class="site-nav-links" aria-label="Primary">
           <a href="index.html#home">Home</a>
           <a href="admin.html" aria-current="page">Admin</a>
-          <a href="trial.html">Participant Login</a>
           <a href="index.html#about">About</a>
         </nav>
       </header>
@@ -803,25 +857,15 @@
 
           <div id="study-settings-popout" class="study-settings-popout hidden" role="dialog" aria-labelledby="study-settings-trigger">
             <div class="study-settings-section">
-              <h4>Trial link</h4>
-              <div class="row" style="margin-bottom:8px;">
-                <div>
-                  <label for="trial-days" style="font-size:13px;">Expires after (days)</label>
-                  <input id="trial-days" type="number" value="90" min="1" max="365" style="margin-bottom:0;" />
-                </div>
-                <div style="display:flex; align-items:flex-end; padding-bottom:14px;">
-                  <label class="checkbox-row" style="font-weight:600; font-size:13px;">
-                    <input id="trial-single-use" type="checkbox" checked /> <span>Single use</span>
-                  </label>
-                </div>
+              <h4>Participant link expiry</h4>
+              <p class="tiny" style="margin:0 0 8px;">Optionally set a date after which the participant link stops working. Leave blank for no expiry.</p>
+              <label for="study-expiry-input" style="font-size:13px;">Expires at end of day</label>
+              <input id="study-expiry-input" type="date" style="margin-bottom:8px;" />
+              <div class="row">
+                <button id="save-expiry-button" type="button">Save expiry</button>
+                <button id="clear-expiry-button" class="ghost" type="button">Remove expiry</button>
               </div>
-              <button id="generate-trial-button" class="ghost" type="button">Generate trial link</button>
-              <div id="trial-link-box" class="hidden" style="margin-top:10px;">
-                <label for="trial-link-output" style="font-size:13px;">Trial link</label>
-                <input id="trial-link-output" readonly style="margin-bottom:6px;" />
-                <button id="copy-trial-link-button" class="ghost" type="button">Copy trial link</button>
-              </div>
-              <div id="trial-generate-status" class="status" style="font-size:13px;"></div>
+              <div id="expiry-status" class="status" style="font-size:13px;"></div>
             </div>
 
             <div class="study-settings-section study-settings-section-danger" id="delete-study-section">
@@ -849,6 +893,13 @@
           </button>
 
           <div id="account-dropdown" class="account-dropdown hidden" role="menu" aria-labelledby="account-trigger">
+            <button id="show-my-studies-button" class="account-item account-item-parent" type="button" role="menuitem" aria-expanded="false" aria-controls="my-studies-box">
+              <span>My Studies</span>
+              <span class="account-item-caret" aria-hidden="true">&#9662;</span>
+            </button>
+            <div id="my-studies-box" class="my-studies-box hidden">
+              <div id="my-studies-list" class="my-studies-list" role="menu" aria-label="My studies"></div>
+            </div>
             <button id="show-change-password-button" class="account-item" type="button" role="menuitem">Change password</button>
             <div id="change-password-box" class="hidden stack" style="padding:12px 14px 14px; border-top:1px solid var(--paper-border); background:#fff;">
               <label for="new-password-session">New password</label>
@@ -1113,13 +1164,22 @@
             <p class="muted">Choose specific submissions below or leave everything selected to aggregate the full study.</p>
             <div id="selection-summary" class="status"></div>
 
-            <div style="margin-top: 18px;">
+            <!-- Analysis view sub-tabs: one visualization at a time, full width. -->
+            <nav class="analysis-tabs" id="analysis-tabs" role="tablist" aria-label="Analysis views">
+              <button type="button" class="analysis-tab active" role="tab" data-an-tab="bar" aria-selected="true">Cards per category</button>
+              <button type="button" class="analysis-tab" role="tab" data-an-tab="sankey" aria-selected="false">Sankey diagrams</button>
+              <button type="button" class="analysis-tab" role="tab" data-an-tab="placement" aria-selected="false">Placement matrix</button>
+              <button type="button" class="analysis-tab" role="tab" data-an-tab="similarity" aria-selected="false">Similarity matrix</button>
+              <button type="button" class="analysis-tab" role="tab" data-an-tab="dendrogram" aria-selected="false">Dendrogram</button>
+            </nav>
+
+            <div class="analysis-panel active" data-an-panel="bar">
               <h3 style="margin-bottom:4px;">Cards sorted per category</h3>
               <p class="tiny" style="margin:0 0 10px;">Total card placements per category across all selected submissions.</p>
               <div id="bar-chart" style="min-height:360px;"></div>
             </div>
 
-            <div style="margin-top: 28px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+            <div class="analysis-panel" data-an-panel="sankey">
               <h3 style="margin-bottom:4px;">Sankey diagrams</h3>
               <label for="merge-map">Category merge map</label>
               <textarea id="merge-map" placeholder="Example:
@@ -1138,29 +1198,22 @@ student support=Support"></textarea>
               </div>
             </div>
 
-            <!-- Advanced Analysis accordion -->
-            <div class="accordion-section">
-              <button class="accordion-btn" id="advanced-toggle" type="button">
-                Advanced Analysis
-                <span class="accordion-chevron" id="advanced-chevron">▼</span>
-              </button>
-              <div id="advanced-analysis-body" class="hidden">
-                <div>
-                  <h3 style="margin-bottom:4px;">Popular Placement Matrix</h3>
-                  <p class="tiny" style="margin:0 0 10px;">How often each card was placed in each category across selected submissions. Darker cells = more frequent placement.</p>
-                  <div id="placement-matrix"></div>
-                </div>
-                <div class="analysis-subsection">
-                  <h3 style="margin-bottom:4px;">Similarity Matrix</h3>
-                  <p class="tiny" style="margin:0 0 10px;">How many participants placed each pair of cards in the same category. Darker = stronger co-occurrence pairing.</p>
-                  <div id="similarity-matrix"></div>
-                </div>
-                <div class="analysis-subsection">
-                  <h3 style="margin-bottom:4px;">Dendrogram (BMM)</h3>
-                  <p class="tiny" style="margin:0 0 10px;">Hierarchical clustering by Best Merge Method. Cards that co-occur most frequently merge lowest in the tree.</p>
-                  <div id="dendrogram-container"></div>
-                </div>
-              </div>
+            <div class="analysis-panel" data-an-panel="placement">
+              <h3 style="margin-bottom:4px;">Popular Placement Matrix</h3>
+              <p class="tiny" style="margin:0 0 10px;">How often each card was placed in each category across selected submissions. Darker cells = more frequent placement.</p>
+              <div id="placement-matrix"></div>
+            </div>
+
+            <div class="analysis-panel" data-an-panel="similarity">
+              <h3 style="margin-bottom:4px;">Similarity Matrix</h3>
+              <p class="tiny" style="margin:0 0 10px;">How many participants placed each pair of cards in the same category. Darker = stronger co-occurrence pairing.</p>
+              <div id="similarity-matrix"></div>
+            </div>
+
+            <div class="analysis-panel" data-an-panel="dendrogram">
+              <h3 style="margin-bottom:4px;">Dendrogram (BMM)</h3>
+              <p class="tiny" style="margin:0 0 10px;">Hierarchical clustering by Best Merge Method. Cards that co-occur most frequently merge lowest in the tree.</p>
+              <div id="dendrogram-container"></div>
             </div>
 
             <!-- PDF export -->
@@ -1313,11 +1366,18 @@ student support=Support"></textarea>
         const studyPopout = document.getElementById('study-settings-popout');
         const deleteStudyConfirm = document.getElementById('delete-study-confirm-box');
 
+        const myStudiesBox = document.getElementById('my-studies-box');
+        const myStudiesBtn = document.getElementById('show-my-studies-button');
+
         function setAccountOpen(open) {
           if (!accountDropdown || !accountTrigger) return;
           accountDropdown.classList.toggle('hidden', !open);
           accountTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
           if (!open && changePwdBox) changePwdBox.classList.add('hidden');
+          if (!open && myStudiesBox) {
+            myStudiesBox.classList.add('hidden');
+            if (myStudiesBtn) myStudiesBtn.setAttribute('aria-expanded', 'false');
+          }
         }
         function setStudyOpen(open) {
           if (!studyPopout || !studyTrigger) return;
@@ -1373,6 +1433,8 @@ student support=Support"></textarea>
 
         // Expose for delete-study success path
         window.__closeStudySettings = () => setStudyOpen(false);
+        // Expose so the "My Studies" list can close the dropdown after navigating.
+        window.__closeAccountMenu = () => setAccountOpen(false);
       })();
 
       document.getElementById('forgot-password-button').addEventListener('click', () => {
@@ -1382,6 +1444,15 @@ student support=Support"></textarea>
       document.getElementById('update-password-button').addEventListener('click', updatePassword);
       document.getElementById('confirm-password-input').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') updatePassword();
+      });
+
+      document.getElementById('show-my-studies-button').addEventListener('click', () => {
+        const box = document.getElementById('my-studies-box');
+        const btn = document.getElementById('show-my-studies-button');
+        const willOpen = box.classList.contains('hidden');
+        box.classList.toggle('hidden', !willOpen);
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (willOpen) renderMyStudiesMenu();
       });
 
       document.getElementById('show-change-password-button').addEventListener('click', () => {
@@ -1525,13 +1596,8 @@ student support=Support"></textarea>
       });
       document.getElementById('confirm-delete-study-button').addEventListener('click', deleteStudy);
       document.getElementById('toggle-study-active-button').addEventListener('click', toggleStudyActive);
-      document.getElementById('generate-trial-button').addEventListener('click', generateTrialLink);
-      document.getElementById('copy-trial-link-button').addEventListener('click', async () => {
-        await navigator.clipboard.writeText(document.getElementById('trial-link-output').value);
-        const btn = document.getElementById('copy-trial-link-button');
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = 'Copy trial link'; }, 2000);
-      });
+      document.getElementById('save-expiry-button').addEventListener('click', saveExpiry);
+      document.getElementById('clear-expiry-button').addEventListener('click', clearExpiry);
 
       async function signIn() {
         if (!supabaseClient) return setStatus('auth-status', 'Configure supabase-config.js first.', 'error');
@@ -1705,27 +1771,6 @@ student support=Support"></textarea>
         renderStudyActiveState();
       }
 
-      async function generateTrialLink() {
-        if (!supabaseClient || !selectedStudy) return;
-        const days = parseInt(document.getElementById('trial-days').value, 10);
-        const singleUse = document.getElementById('trial-single-use').checked;
-        if (!days || days < 1 || days > 365) {
-          return setStatus('trial-generate-status', 'Enter a number of days between 1 and 365.', 'error');
-        }
-        setStatus('trial-generate-status', 'Generating...', '');
-        const { data, error } = await supabaseClient.rpc('generate_trial_token', {
-          p_study_id: selectedStudy.id,
-          p_expires_in_days: days,
-          p_is_single_use: singleUse,
-        });
-        if (error) return setStatus('trial-generate-status', error.message, 'error');
-        const basePath = window.location.pathname.replace(/\/[^/]*$/, '/');
-        const trialLink = `${window.location.origin}${basePath}trial.html?token=${data}`;
-        document.getElementById('trial-link-output').value = trialLink;
-        document.getElementById('trial-link-box').classList.remove('hidden');
-        setStatus('trial-generate-status', `Expires in ${days} day${days === 1 ? '' : 's'}${singleUse ? ', single use.' : ', multi-use.'}`, 'success');
-      }
-
       function renderStudyActiveState() {
         if (!selectedStudy) return;
         const btn = document.getElementById('toggle-study-active-button');
@@ -1814,6 +1859,39 @@ student support=Support"></textarea>
           div.addEventListener('click', () => selectStudy(study.id));
           container.appendChild(div);
         }
+
+        // Keep the "My Studies" quick-access menu (account dropdown) in sync.
+        renderMyStudiesMenu();
+      }
+
+      // Populates the "My Studies" list inside the account pill dropdown so an
+      // admin can jump straight to any of their studies from anywhere.
+      function renderMyStudiesMenu() {
+        const list = document.getElementById('my-studies-list');
+        if (!list) return;
+        list.innerHTML = '';
+
+        if (!studies.length) {
+          const empty = document.createElement('div');
+          empty.className = 'my-studies-empty';
+          empty.textContent = 'No studies yet. Create one from the Study access tab.';
+          list.appendChild(empty);
+          return;
+        }
+
+        for (const study of studies) {
+          const count = study.submission_count || 0;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.setAttribute('role', 'menuitem');
+          btn.className = 'my-study-item' + (selectedStudy && selectedStudy.id === study.id ? ' active' : '');
+          btn.innerHTML = `<span class="ms-name">${escapeText(study.study_name)}</span><span class="ms-meta">${escapeText(study.study_id)} &middot; ${count} submission${count === 1 ? '' : 's'}</span>`;
+          btn.addEventListener('click', () => {
+            selectStudy(study.id);
+            if (typeof window.__closeAccountMenu === 'function') window.__closeAccountMenu();
+          });
+          list.appendChild(btn);
+        }
       }
 
       async function selectStudy(studyUuid) {
@@ -1864,6 +1942,76 @@ student support=Support"></textarea>
         renderSelectedStudy();
         renderDirectory();
         renderCombinedCharts();
+        loadStudyExpiry();
+      }
+
+      // Reads the study's link expiry via the public status RPC (works without a
+      // direct table SELECT). Falls back gracefully if the migration that adds
+      // the column/function has not been run yet.
+      async function loadStudyExpiry() {
+        if (!selectedStudy) return;
+        try {
+          const { data, error } = await supabaseClient.rpc('get_study_link_status', {
+            p_public_token: selectedStudy.public_token,
+          });
+          if (error) throw error;
+          const row = Array.isArray(data) ? data[0] : data;
+          selectedStudy.expires_at = row ? row.expires_at : null;
+        } catch (_err) {
+          selectedStudy.expires_at = selectedStudy.expires_at || null;
+        }
+        renderExpiryControl();
+      }
+
+      function renderExpiryControl() {
+        const input = document.getElementById('study-expiry-input');
+        const status = document.getElementById('expiry-status');
+        if (!input || !status) return;
+        const iso = selectedStudy && selectedStudy.expires_at;
+        if (iso) {
+          const d = new Date(iso);
+          // Populate the date picker with the local calendar date.
+          input.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const expired = d.getTime() < Date.now();
+          status.textContent = expired
+            ? `Expired on ${d.toLocaleDateString()} — participants can no longer access this link.`
+            : `Link expires ${d.toLocaleDateString()}.`;
+          status.className = 'status ' + (expired ? 'error' : 'success');
+        } else {
+          input.value = '';
+          status.textContent = 'No expiry — the participant link works indefinitely.';
+          status.className = 'status';
+        }
+      }
+
+      async function saveExpiry() {
+        if (!supabaseClient || !selectedStudy) return;
+        const value = document.getElementById('study-expiry-input').value;
+        if (!value) {
+          return setStatus('expiry-status', 'Pick a date, or use "Remove expiry".', 'error');
+        }
+        // Expire at the end of the chosen local day.
+        const expiresAt = new Date(`${value}T23:59:59`).toISOString();
+        setStatus('expiry-status', 'Saving...', '');
+        const { error } = await supabaseClient
+          .from('studies')
+          .update({ expires_at: expiresAt })
+          .eq('id', selectedStudy.id);
+        if (error) return setStatus('expiry-status', error.message, 'error');
+        selectedStudy.expires_at = expiresAt;
+        renderExpiryControl();
+      }
+
+      async function clearExpiry() {
+        if (!supabaseClient || !selectedStudy) return;
+        setStatus('expiry-status', 'Removing...', '');
+        const { error } = await supabaseClient
+          .from('studies')
+          .update({ expires_at: null })
+          .eq('id', selectedStudy.id);
+        if (error) return setStatus('expiry-status', error.message, 'error');
+        selectedStudy.expires_at = null;
+        renderExpiryControl();
       }
 
       function normalizeJsonArray(value) {
@@ -1885,9 +2033,6 @@ student support=Support"></textarea>
         document.getElementById('delete-study-confirm-box').classList.add('hidden');
         document.getElementById('confirm-delete-study-button').disabled = false;
         setStatus('delete-study-status', '', '');
-        setStatus('trial-generate-status', '', '');
-        document.getElementById('trial-link-box').classList.add('hidden');
-        document.getElementById('trial-link-output').value = '';
         renderStudyActiveState();
 
         selectedStudyPanel.classList.remove('hidden');
@@ -2161,36 +2306,75 @@ student support=Support"></textarea>
         URL.revokeObjectURL(url);
       }
 
-      function renderCombinedCharts() {
-        const selectedRows = getSelectedSubmissionRows();
-        const mergeMap = parseMergeMap(document.getElementById('merge-map').value);
+      // Which analysis sub-tab is currently shown. Each view renders into its own
+      // full-width panel; we (re)render a view when its tab is shown so Google
+      // Charts get the correct width (a chart drawn while display:none is 0-wide).
+      let activeAnalysisView = 'bar';
 
-        function doRender() {
-          renderBarChart(selectedRows);
+      // Run a Google-Charts-dependent render now if the packages are ready,
+      // otherwise once they finish loading.
+      function withCharts(fn) {
+        if (chartsReady) fn();
+        else google.charts.setOnLoadCallback(fn);
+      }
+
+      function currentMergeMap() {
+        return parseMergeMap(document.getElementById('merge-map').value);
+      }
+
+      function renderBarView() {
+        withCharts(() => renderBarChart(getSelectedSubmissionRows()));
+      }
+      function renderSankeyView() {
+        const rows = getSelectedSubmissionRows();
+        const mergeMap = currentMergeMap();
+        withCharts(() => {
           cardCategoryChartInstance = drawSankey(
             'card-category-chart',
-            buildCardSankeyRows(selectedRows, mergeMap),
+            buildCardSankeyRows(rows, mergeMap),
             'No data for card-to-category Sankey.'
           );
           categoryMergeChartInstance = drawSankey(
             'category-merge-chart',
-            buildMergedSankeyRows(selectedRows, mergeMap),
+            buildMergedSankeyRows(rows, mergeMap),
             'No data for category-merge Sankey.'
           );
-        }
+        });
+      }
+      function renderPlacementView() {
+        renderPlacementMatrix(getSelectedSubmissionRows(), currentMergeMap());
+      }
+      function renderSimilarityView() {
+        renderSimilarityMatrix(getSelectedSubmissionRows(), currentMergeMap());
+      }
+      function renderDendrogramView() {
+        const { root, cards, maxScore } = computeBMMTree(getSelectedSubmissionRows(), currentMergeMap());
+        renderDendrogramSVG('dendrogram-container', root, cards, maxScore);
+      }
 
-        // If charts are already loaded call directly; otherwise register once.
-        // Avoids queuing duplicate callbacks when renderCombinedCharts is called
-        // repeatedly before the Google Charts packages finish loading.
-        if (chartsReady) {
-          doRender();
-        } else {
-          google.charts.setOnLoadCallback(doRender);
-        }
+      const analysisRenderers = {
+        bar: renderBarView,
+        sankey: renderSankeyView,
+        placement: renderPlacementView,
+        similarity: renderSimilarityView,
+        dendrogram: renderDendrogramView,
+      };
 
-        if (!document.getElementById('advanced-analysis-body').classList.contains('hidden')) {
-          renderAdvancedAnalysis();
-        }
+      function renderAnalysisView(view) {
+        const fn = analysisRenderers[view];
+        if (fn) fn();
+      }
+
+      // Render every view (used before PDF capture, where all panels are forced
+      // visible so each visualization is captured at full size).
+      function renderAllAnalysisViews() {
+        Object.values(analysisRenderers).forEach((fn) => fn());
+      }
+
+      // Renders the currently visible analysis view. Called when a study loads
+      // and when the Sankey "Render" button applies a new merge map.
+      function renderCombinedCharts() {
+        renderAnalysisView(activeAnalysisView);
       }
 
       function drawSankey(containerId, rows, emptyMessage) {
@@ -2291,21 +2475,27 @@ student support=Support"></textarea>
         });
       }
 
-      /* ── Advanced Analysis: accordion toggle ─────────────────── */
+      /* ── Analysis sub-tabs ───────────────────────────────────── */
+      (function setupAnalysisTabs() {
+        const tabs = Array.from(document.querySelectorAll('.analysis-tab'));
+        const panels = Array.from(document.querySelectorAll('.analysis-panel'));
+        if (!tabs.length) return;
 
-      document.getElementById('advanced-toggle').addEventListener('click', () => {
-        const body = document.getElementById('advanced-analysis-body');
-        const chevron = document.getElementById('advanced-chevron');
-        const isOpen = !body.classList.contains('hidden');
-        if (isOpen) {
-          body.classList.add('hidden');
-          chevron.classList.remove('open');
-        } else {
-          body.classList.remove('hidden');
-          chevron.classList.add('open');
-          renderAdvancedAnalysis();
+        function showView(view) {
+          activeAnalysisView = view;
+          tabs.forEach((t) => {
+            const active = t.dataset.anTab === view;
+            t.classList.toggle('active', active);
+            t.setAttribute('aria-selected', active ? 'true' : 'false');
+          });
+          panels.forEach((p) => p.classList.toggle('active', p.dataset.anPanel === view));
+          // Render now that the panel is visible (correct width for charts).
+          renderAnalysisView(view);
         }
-      });
+
+        tabs.forEach((tab) => tab.addEventListener('click', () => showView(tab.dataset.anTab)));
+        window.__setAnalysisView = showView;
+      })();
 
       document.getElementById('generate-pdf-button').addEventListener('click', generatePDFReport);
 
@@ -2651,15 +2841,6 @@ student support=Support"></textarea>
         </div>`;
       }
 
-      function renderAdvancedAnalysis() {
-        const selectedRows = getSelectedSubmissionRows();
-        const mergeMap = parseMergeMap(document.getElementById('merge-map').value);
-        renderPlacementMatrix(selectedRows, mergeMap);
-        renderSimilarityMatrix(selectedRows, mergeMap);
-        const { root, cards, maxScore } = computeBMMTree(selectedRows, mergeMap);
-        renderDendrogramSVG('dendrogram-container', root, cards, maxScore);
-      }
-
       /* ── PDF Report ───────────────────────────────────────────── */
 
       async function generatePDFReport() {
@@ -2667,17 +2848,15 @@ student support=Support"></textarea>
         btn.textContent = 'Generating\u2026';
         btn.disabled = true;
 
-        // Ensure advanced analysis panels are rendered before capture
-        renderAdvancedAnalysis();
+        // Force every analysis panel visible so all six visualizations render at
+        // full size for capture (only the active sub-tab is visible normally).
+        const combinedPanelEl = document.getElementById('combined-panel');
+        combinedPanelEl.classList.add('analysis-show-all');
         await new Promise(r => requestAnimationFrame(r));
-
-        // Temporarily unhide the advanced body so html2canvas can capture it
-        const advBody = document.getElementById('advanced-analysis-body');
-        const wasHidden = advBody.classList.contains('hidden');
-        if (wasHidden) {
-          advBody.classList.remove('hidden');
-          await new Promise(r => requestAnimationFrame(r));
-        }
+        renderAllAnalysisViews();
+        // Two frames: one for the layout, one for Google Charts to paint.
+        await new Promise(r => requestAnimationFrame(r));
+        await new Promise(r => requestAnimationFrame(r));
 
         try {
           const { jsPDF } = window.jspdf;
@@ -2791,7 +2970,10 @@ student support=Support"></textarea>
           console.error('PDF generation error:', err);
           alert('PDF generation failed. See the browser console for details.');
         } finally {
-          if (wasHidden) advBody.classList.add('hidden');
+          // Restore the single-view layout and re-render the active tab so its
+          // chart fits the normal panel width again.
+          document.getElementById('combined-panel').classList.remove('analysis-show-all');
+          renderAnalysisView(activeAnalysisView);
           btn.textContent = '\u2b07 Generate PDF Report';
           btn.disabled = false;
         }

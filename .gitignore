@@ -24,8 +24,9 @@ npm-debug.log*
 # Internal prompt/task files
 *.txt
 
-# Database schema — contains full RLS policies and security logic; keep local only
+# Database schema & migrations — contain RLS/security logic; keep local only
 supabase-schema.sql
+db/
 
 # Deployment reference — reveals infrastructure stack
 DEPLOYMENT_NOTES.md

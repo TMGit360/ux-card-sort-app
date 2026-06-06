@@ -1470,6 +1470,19 @@
         return;
       }
 
+      // Block access if the admin set a link expiry date that has now passed.
+      // Fail open if the status function is unavailable (e.g. migration not run).
+      try {
+        const { data, error } = await sb.rpc('get_study_link_status', { p_public_token: TOKEN });
+        if (!error) {
+          const status = Array.isArray(data) ? data[0] : data;
+          if (status && status.is_expired) {
+            showError('This study link has expired. Please contact the study administrator.');
+            return;
+          }
+        }
+      } catch (_err) { /* status function unavailable — allow access */ }
+
       // Reload from stored session (handles page refresh — skip consent)
       const stored = loadStoredSession();
       if (stored) {

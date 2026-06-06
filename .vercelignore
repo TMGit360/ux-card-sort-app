@@ -5,3 +5,6 @@ supabase-schema.sql
 
 # Reveals infrastructure stack and operational procedures
 DEPLOYMENT_NOTES.md
+
+# Database migrations — not part of the deployed static site
+db/
