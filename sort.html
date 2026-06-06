@@ -523,6 +523,13 @@
       border-radius: 0 8px 8px 0;
       padding: 14px 16px;
     }
+    /* Admin-authored study description (only shown when the study has one) */
+    .consent-box p.consent-desc {
+      border-left-color: #0f766e;
+      background: #f0fdfa;
+      color: #134e4a;
+      white-space: pre-wrap;
+    }
     .consent-actions { display: flex; gap: 12px; }
     .consent-actions button {
       flex: 1;
@@ -600,8 +607,8 @@
 
   <div id="consent-view" class="page-center hidden">
     <div class="consent-box">
-      <h1>Before you begin</h1>
-      <p>Welcome, and thank you for participating. In this card sort activity, you will organize items into categories based on the instructions provided. The facilitator will explain the activity and provide written instructions to guide you. Your name and responses will be collected and reviewed by the study administrator. Participation is completely voluntary.</p>
+      <h1>About The Study</h1>
+      <p id="consent-study-desc" class="consent-desc"></p>
       <div class="consent-actions">
         <button id="btn-consent-agree">I Agree</button>
         <button id="btn-consent-exit">Exit</button>
@@ -693,6 +700,7 @@
 
     /* ─── App state ─────────────────────────────────────────── */
     let SESSION      = null;   // populated after start_participant_session
+    let STUDY_CTX    = null;   // cached get_public_study_context (study_name, study_description)
     let selectedCard = null;   // card element selected via click/tap
 
     /* ─── Card drag state ────────────────────────────────────── */
@@ -725,6 +733,7 @@
     const elError        = document.getElementById('error-view');
     const elErrorText    = document.getElementById('error-text');
     const elConsentView  = document.getElementById('consent-view');
+    const elConsentDesc  = document.getElementById('consent-study-desc');
     const elGateView     = document.getElementById('gate-view');
     const elGateStudy = document.getElementById('gate-study-name');
     const elGateBtn   = document.getElementById('gate-btn');
@@ -1333,7 +1342,11 @@
 
       elHdrStudy.textContent = session.study_name || 'Card Sort';
       elHdrPart.textContent  = session.participant_name || '';
+      // Closed sorts (allow_category_editing === false) lock the structure:
+      // participants may not add categories OR cards.
       elBtnAddCat.style.display = allowEdit ? '' : 'none';
+      elBtnAddCard.style.display = allowEdit ? '' : 'none';
+      if (!allowEdit) elAddCardForm.classList.add('hidden');
 
       // Place cards in the unsorted pile
       let cards = toArray(session.cards);
@@ -1466,17 +1479,39 @@
         return;
       }
 
-      // Show consent screen first
+      // Load study context up front so the welcome screen can show the
+      // admin-authored study description, then show the consent screen.
+      await loadStudyContext();
       show(elConsentView);
+    }
+
+    // Fetch the public study context (study_name + study_description) and, if a
+    // description was provided by the admin, surface it on the welcome screen.
+    // Non-fatal: on failure we fall back to the generic consent text.
+    async function loadStudyContext() {
+      try {
+        const { data, error } = await sb.rpc('get_public_study_context', { p_public_token: TOKEN });
+        if (error) throw error;
+        STUDY_CTX = Array.isArray(data) ? data[0] : data;
+      } catch (err) {
+        STUDY_CTX = null;
+      }
+      const desc = STUDY_CTX && STUDY_CTX.study_description
+        ? String(STUDY_CTX.study_description).trim() : '';
+      elConsentDesc.textContent = desc ||
+        'Your study administrator will guide you through this card sort. Select “I Agree” to begin.';
     }
 
     async function proceedAfterConsent() {
       show(elLoading);
-      // Fetch study name for the gate
+      // Reuse the context fetched for the welcome screen; refetch only if missing.
       try {
-        const { data, error } = await sb.rpc('get_public_study_context', { p_public_token: TOKEN });
-        if (error) throw error;
-        const ctx = Array.isArray(data) ? data[0] : data;
+        let ctx = STUDY_CTX;
+        if (!ctx) {
+          const { data, error } = await sb.rpc('get_public_study_context', { p_public_token: TOKEN });
+          if (error) throw error;
+          ctx = Array.isArray(data) ? data[0] : data;
+        }
         if (!ctx) {
           showError('This study link is invalid or has been deactivated.');
           return;
